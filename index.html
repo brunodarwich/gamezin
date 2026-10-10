@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Jogo 2D - Canvas Multiplataforma</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Canvas do Jogo -->
+  <canvas id="gameCanvas"></canvas>
+
+  <!-- Overlay para Joystick Virtual na tela de toque/mobile -->
+  <div id="joystickZone">
+    <div id="joystickBase">
+      <div id="joystickKnob"></div>
+    </div>
+  </div>
+
+  <!-- HUD simples de coordenadas e instruções -->
+  <div id="hud">
+    <div id="posDisplay">X: 0 | Y: 0</div>
+    <div id="controlsHint">Mover: WASD/Setas/Clique | Zoom: + / - ou Scroll</div>
+    <!-- Controles de Zoom para Desktop e Mobile -->
+    <div id="zoomControls">
+      <button id="btnZoomIn" title="Aproximar (+)">+</button>
+      <button id="btnZoomReset" title="Zoom Padrão (0)">1x</button>
+      <button id="btnZoomOut" title="Afastar (-)">−</button>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>

@@ -1,0 +1,142 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: #ffffff; /* Fundo todo branco como solicitado */
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  touch-action: none; /* Previne scroll e zoom acidental em mobile */
+}
+
+#gameCanvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Área de controle do joystick virtual */
+#joystickZone {
+  position: absolute;
+  bottom: 30px;
+  left: 30px;
+  width: 150px;
+  height: 150px;
+  pointer-events: auto;
+  z-index: 10;
+}
+
+#joystickBase {
+  position: absolute;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: rgba(220, 220, 220, 0.45);
+  border: 2px solid rgba(180, 180, 180, 0.6);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.2s ease;
+}
+
+#joystickKnob {
+  position: absolute;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: rgba(80, 80, 80, 0.7);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+  transform: translate(0px, 0px);
+}
+
+/* HUD discreto e elegante */
+#hud {
+  position: absolute;
+  top: 15px;
+  left: 15px;
+  right: 15px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  pointer-events: none;
+  z-index: 5;
+  color: #666666;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+#posDisplay {
+  background: rgba(240, 240, 240, 0.8);
+  padding: 6px 12px;
+  border-radius: 20px;
+  border: 1px solid #e0e0e0;
+}
+
+#controlsHint {
+  background: rgba(240, 240, 240, 0.8);
+  padding: 6px 12px;
+  border-radius: 20px;
+  border: 1px solid #e0e0e0;
+  font-size: 12px;
+}
+
+/* Controles de Zoom */
+#zoomControls {
+  display: flex;
+  gap: 6px;
+  pointer-events: auto; /* Permite clicar/tocar */
+}
+
+#zoomControls button {
+  background: rgba(245, 245, 245, 0.85);
+  border: 1px solid #d4d4d8;
+  color: #3f3f46;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  transition: all 0.15s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+#zoomControls button:hover {
+  background: #ffffff;
+  border-color: #a1a1aa;
+  transform: scale(1.08);
+}
+
+#zoomControls button:active {
+  transform: scale(0.95);
+  background: #e4e4e7;
+}
+
+#btnZoomReset {
+  font-size: 11px !important;
+  border-radius: 12px !important;
+  width: 36px !important;
+}
+
+@media (max-width: 600px) {
+  #controlsHint {
+    display: none; /* Deixa a tela limpa no celular */
+  }
+}
