@@ -1025,12 +1025,10 @@
 
     const bubbleEl = document.getElementById('npcSpeechBubble');
     const textEl = document.getElementById('npcSpeechText');
-    const tagEl = document.getElementById('speechStateTag');
 
     if (!bubbleEl || !textEl) return;
 
     bubbleEl.classList.remove('npc-ui-hidden');
-    if (tagEl) tagEl.textContent = tag;
     textEl.textContent = '';
 
     isTypingSpeech = true;
@@ -1224,8 +1222,6 @@
 
     const isFinalTurn = (dialogueTurnCount >= MAX_DIALOGUE_TURNS);
     const bubbleText = document.getElementById('npcSpeechText');
-    const bubbleTag = document.getElementById('speechStateTag');
-    if (bubbleTag) bubbleTag.textContent = 'Contemplando...';
     if (bubbleText) bubbleText.textContent = '...';
 
     try {

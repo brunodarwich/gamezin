@@ -7,7 +7,7 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <title>Gamezin - 2.5D Isométrico Suave</title>
-  <link rel="stylesheet" href="style.css?v=20261011d">
+  <link rel="stylesheet" href="style.css?v=20261011e">
 </head>
 <body>
   <!-- Canvas do Jogo -->
@@ -75,9 +75,6 @@
 
   <!-- Balão de Fala do Jogador Projetado em 3D sobre o Viajante -->
   <div id="playerSpeechBubble" class="player-speech-bubble npc-ui-hidden">
-    <div class="player-bubble-header">
-      <span class="player-bubble-speaker">Você</span>
-    </div>
     <div id="playerSpeechText" class="player-bubble-text"></div>
     <div class="player-bubble-arrow"></div>
   </div>
@@ -92,10 +89,6 @@
 
   <!-- Balão de Fala do NPC Projetado em 3D -->
   <div id="npcSpeechBubble" class="npc-ui-hidden">
-    <div class="bubble-header">
-      <span class="bubble-speaker">Mestre Sábio</span>
-      <span id="speechStateTag" class="bubble-tag"></span>
-    </div>
     <div id="npcSpeechText"></div>
     <div class="bubble-arrow"></div>
   </div>
@@ -104,7 +97,7 @@
   <div id="npcChatBar" class="npc-ui-hidden">
     <div class="chat-inner">
       <div class="chat-header-row">
-        <div class="chat-turn-indicator">Ensinamentos: <span id="interactionTurnCount">0</span>/5</div>
+        <div class="chat-turn-indicator">Conversa: <span id="interactionTurnCount">0</span>/5</div>
         <button id="btnCloseChat" title="Encerrar conversa (Esc)">✕ Encerrar</button>
       </div>
       <form id="npcChatForm" class="chat-input-row" onsubmit="return false;">
@@ -115,7 +108,7 @@
   </div>
 
   <script src="three.min.js"></script>
-  <script src="game.js?v=20261011d"></script>
-  <script src="visitor-counter.js?v=20261011d"></script>
+  <script src="game.js?v=20261011e"></script>
+  <script src="visitor-counter.js?v=20261011e"></script>
 </body>
 </html>
