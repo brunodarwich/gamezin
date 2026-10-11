@@ -1,539 +1,747 @@
-// Motor de jogo 2D Canvas leve, fluido e responsivo
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
-const posDisplay = document.getElementById('posDisplay');
+// Motor 3D/2.5D baseado em Three.js com Perspectiva Isométrica Suave e Fundo Infinito
+// Inspirado na engenharia visual e mecânica do modo Explorar (O Caminho das Flores)
 
-// Configuração da Resolução e DPI (Retina / Telas Mobile de Alta Densidade)
-let width = window.innerWidth;
-let height = window.innerHeight;
-let dpr = window.devicePixelRatio || 1;
+(() => {
+  // Configurações e Constantes Principais
+  const PLAYER_HEIGHT = 2.0;
+  let playerWidth = 2.0; // Atualizado após carregar o aspect ratio real do sprite
+  const BASE_Y = PLAYER_HEIGHT / 2;
+  const SPEED = 5.2; // Velocidade em unidades Three.js / segundo
+  const DUST_TRIGGER_TIME = 0.9;
+  const DUST_SPAWN_INTERVAL = 0.12;
+  const MAX_FX_PARTICLES = 60;
 
-function resize() {
-  width = window.innerWidth;
-  height = window.innerHeight;
-  dpr = window.devicePixelRatio || 1;
-  canvas.width = width * dpr;
-  canvas.height = height * dpr;
-  ctx.resetTransform?.();
-  ctx.scale(dpr, dpr);
-}
-window.addEventListener('resize', resize);
-resize();
+  // Variáveis de Enquadramento da Câmera
+  let camOffsetY = 7.5;
+  let camOffsetZ = 9.5;
 
-// Configuração de Perspectiva 2.5D (Paper Mario)
-// Valores menores geram mais inclinação/profundidade no piso (0.45 acentua a perspectiva 2.5D clássica)
-const Y_SQUISH = 0.44;
+  // Elementos do DOM
+  const canvas = document.getElementById('gameCanvas');
+  const posDisplay = document.getElementById('posDisplay');
 
-// Estado do Personagem (Estilo Paper Mario: recorte 2D em pé com perspectiva)
-const player = {
-  x: 0,
-  y: 0,
-  vx: 0,
-  vy: 0,
-  baseHeight: 120, // Altura visual de referência no mundo (proporção agradável)
-  width: 90,       // Largura calculada dinamicamente pelo aspect ratio real
-  height: 120,     // Altura calculada dinamicamente pelo aspect ratio real
-  speed: 360,      // Pixels por segundo
-  friction: 0.88,  // Fricção suave
-  facingDir: 1,    // 1 = olhando pra direita, -1 = olhando pra esquerda (flip 2D clássico)
-  moving: false,
-  bobTimer: 0,     // Balanço suave de papel ao caminhar
-  // Estado de Animação
-  animState: 'idle', // 'idle', 'run_right', 'run_left'
-  animTimer: 0,
-  currentFrameIndex: 0,
-  animations: {
+  // Three.js Core
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0xfcfbf8); // Branco quente orgânico
+  scene.fog = new THREE.FogExp2(0xfcfbf8, 0.018); // Névoa volumétrica suave
+
+  const aspect = window.innerWidth / window.innerHeight;
+  const camera = new THREE.PerspectiveCamera(40, aspect, 0.1, 200);
+  camera.position.set(0, camOffsetY, camOffsetZ);
+  camera.lookAt(0, 1.0, 0);
+
+  const renderer = new THREE.WebGLRenderer({
+    canvas: canvas,
+    antialias: true,
+    alpha: false,
+    powerPreference: 'high-performance'
+  });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+
+  // Iluminação Suave
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.92);
+  scene.add(ambientLight);
+
+  const dirLight = new THREE.DirectionalLight(0xfff7ed, 0.55);
+  dirLight.position.set(6, 14, 8);
+  scene.add(dirLight);
+
+  // 1. Chão Infinito com Horizonte Imperceptível
+  const groundGeo = new THREE.PlaneGeometry(350, 350);
+  const groundMat = new THREE.MeshBasicMaterial({
+    color: 0xfcfbf8,
+    depthWrite: true
+  });
+  const groundPlane = new THREE.Mesh(groundGeo, groundMat);
+  groundPlane.rotation.x = -Math.PI / 2;
+  scene.add(groundPlane);
+
+  // 2. Marcas Sutis no Chão (Referência tátil de movimento e escala 3D)
+  function createGroundMarksTexture() {
+    const cvs = document.createElement('canvas');
+    cvs.width = 256;
+    cvs.height = 256;
+    const ctx = cvs.getContext('2d');
+    ctx.clearRect(0, 0, 256, 256);
+    ctx.strokeStyle = 'rgba(215, 208, 195, 0.38)';
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    ctx.moveTo(128 - 7, 128);
+    ctx.lineTo(128 + 7, 128);
+    ctx.moveTo(128, 128 - 7);
+    ctx.lineTo(128, 128 + 7);
+    ctx.stroke();
+
+    const tex = new THREE.CanvasTexture(cvs);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(70, 70);
+    return tex;
+  }
+
+  const marksPlane = new THREE.Mesh(
+    new THREE.PlaneGeometry(350, 350),
+    new THREE.MeshBasicMaterial({
+      map: createGroundMarksTexture(),
+      transparent: true,
+      depthWrite: false
+    })
+  );
+  marksPlane.rotation.x = -Math.PI / 2;
+  marksPlane.position.y = 0.005;
+  scene.add(marksPlane);
+
+  // 3. Texturas Procedurais via Canvas 2D
+  // Sombra suave sob os pés
+  function createShadowTexture() {
+    const cvs = document.createElement('canvas');
+    cvs.width = 128;
+    cvs.height = 128;
+    const ctx = cvs.getContext('2d');
+    const grad = ctx.createRadialGradient(64, 64, 4, 64, 64, 60);
+    grad.addColorStop(0, 'rgba(30, 40, 45, 0.45)');
+    grad.addColorStop(0.5, 'rgba(40, 50, 55, 0.18)');
+    grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 128, 128);
+    return new THREE.CanvasTexture(cvs);
+  }
+
+  // Marcador de Toque Verde Botânico Translúcido com Centro Suave
+  function createClickMarkerTexture() {
+    const cvs = document.createElement('canvas');
+    cvs.width = 128;
+    cvs.height = 128;
+    const ctx = cvs.getContext('2d');
+
+    // 1. Anel externo elegante
+    ctx.strokeStyle = 'rgba(78, 122, 102, 0.72)';
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.arc(64, 64, 48, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // 2. Miolo preenchido translúcido
+    ctx.fillStyle = 'rgba(120, 170, 145, 0.42)';
+    ctx.beginPath();
+    ctx.arc(64, 64, 16, 0, Math.PI * 2);
+    ctx.fill();
+
+    return new THREE.CanvasTexture(cvs);
+  }
+
+  // Partícula de Poeira Cartunizada
+  function createDustTexture() {
+    const cvs = document.createElement('canvas');
+    cvs.width = 128;
+    cvs.height = 128;
+    const ctx = cvs.getContext('2d');
+
+    const puffs = [
+      { x: 64, y: 72, r: 36 },
+      { x: 38, y: 78, r: 26 },
+      { x: 90, y: 78, r: 26 },
+      { x: 48, y: 52, r: 24 },
+      { x: 78, y: 50, r: 26 },
+      { x: 64, y: 44, r: 20 }
+    ];
+
+    // Contorno suave
+    ctx.fillStyle = 'rgba(175, 155, 130, 0.45)';
+    puffs.forEach(p => {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y + 3, p.r + 3, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    // Traço cartoon
+    ctx.fillStyle = 'rgba(185, 162, 135, 0.95)';
+    puffs.forEach(p => {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r + 1.5, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    // Corpo da nuvem
+    ctx.fillStyle = 'rgba(238, 228, 214, 0.96)';
+    puffs.forEach(p => {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    // Brilho interno
+    ctx.fillStyle = 'rgba(255, 252, 246, 0.8)';
+    puffs.forEach(p => {
+      ctx.beginPath();
+      ctx.arc(p.x - 3, p.y - 4, p.r * 0.55, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    return new THREE.CanvasTexture(cvs);
+  }
+
+  // 4. Grupo do Jogador & Billboard Inclinado
+  const playerGroup = new THREE.Group();
+  playerGroup.position.set(0, 0, 0);
+  scene.add(playerGroup);
+
+  // Sombra Projetada em Elipse
+  const shadowGeo = new THREE.PlaneGeometry(1.6, 0.9);
+  const shadowMat = new THREE.MeshBasicMaterial({
+    map: createShadowTexture(),
+    transparent: true,
+    depthWrite: false
+  });
+  const shadowMesh = new THREE.Mesh(shadowGeo, shadowMat);
+  shadowMesh.rotation.x = -Math.PI / 2;
+  shadowMesh.position.y = 0.02;
+  playerGroup.add(shadowMesh);
+
+  // Sprite Billboard do Jogador
+  let playerMesh = null;
+  const playerGeo = new THREE.PlaneGeometry(playerWidth, PLAYER_HEIGHT);
+  const playerMat = new THREE.MeshBasicMaterial({
+    transparent: true,
+    alphaTest: 0.02,
+    side: THREE.DoubleSide,
+    depthWrite: false
+  });
+  playerMesh = new THREE.Mesh(playerGeo, playerMat);
+  playerMesh.position.y = BASE_Y;
+  playerMesh.rotation.x = -0.36; // Inclinação de contra-balanço exata (-20.6°)
+  playerGroup.add(playerMesh);
+
+  // Marcador de Destino no Chão
+  const markerGeo = new THREE.PlaneGeometry(1.2, 1.2);
+  const markerMat = new THREE.MeshBasicMaterial({
+    map: createClickMarkerTexture(),
+    transparent: true,
+    opacity: 0,
+    depthWrite: false
+  });
+  const clickMarkerMesh = new THREE.Mesh(markerGeo, markerMat);
+  clickMarkerMesh.rotation.x = -Math.PI / 2;
+  clickMarkerMesh.position.y = 0.03;
+  scene.add(clickMarkerMesh);
+
+  // Sistema de Partículas (FX)
+  const dustTexture = createDustTexture();
+  const fxGroup = new THREE.Group();
+  scene.add(fxGroup);
+  const fxParticles = [];
+
+  function spawnDustParticle(x, z, dirX, dirZ) {
+    if (!dustTexture || fxParticles.length >= MAX_FX_PARTICLES) return;
+
+    const geo = new THREE.PlaneGeometry(0.85, 0.85);
+    const initialOpacity = 0.85;
+    const mat = new THREE.MeshBasicMaterial({
+      map: dustTexture,
+      transparent: true,
+      opacity: initialOpacity,
+      depthTest: false,
+      depthWrite: false,
+      side: THREE.DoubleSide
+    });
+
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.renderOrder = 4;
+    const spawnX = x - dirX * 0.25 + (Math.random() - 0.5) * 0.18;
+    const spawnZ = z - dirZ * 0.25 + (Math.random() - 0.5) * 0.18;
+    mesh.position.set(spawnX, 0.16, spawnZ);
+    mesh.rotation.x = -0.36;
+    mesh.rotation.z = (Math.random() - 0.5) * 0.3;
+
+    const startScale = 0.42 + Math.random() * 0.15;
+    mesh.scale.set(startScale, startScale, startScale);
+    fxGroup.add(mesh);
+
+    fxParticles.push({
+      mesh: mesh,
+      vx: -dirX * 0.35 + (Math.random() - 0.5) * 0.25,
+      vz: -dirZ * 0.35 + (Math.random() - 0.5) * 0.25,
+      vy: 0.22 + Math.random() * 0.14,
+      baseScale: startScale,
+      initialOpacity: initialOpacity,
+      age: 0,
+      life: 0.52 + Math.random() * 0.14
+    });
+  }
+
+  function updateParticles(delta) {
+    for (let i = fxParticles.length - 1; i >= 0; i--) {
+      const p = fxParticles[i];
+      p.age += delta;
+
+      if (p.age >= p.life) {
+        fxGroup.remove(p.mesh);
+        if (p.mesh.geometry) p.mesh.geometry.dispose();
+        if (p.mesh.material) p.mesh.material.dispose();
+        fxParticles.splice(i, 1);
+        continue;
+      }
+
+      p.mesh.position.x += p.vx * delta;
+      p.mesh.position.z += p.vz * delta;
+      p.mesh.position.y += p.vy * delta;
+      p.vy *= 0.94;
+
+      const progress = p.age / p.life;
+      p.mesh.material.opacity = p.initialOpacity * (1 - progress);
+      const currentScale = p.baseScale * (1 + progress * 0.45);
+      p.mesh.scale.set(currentScale, currentScale, currentScale);
+    }
+  }
+
+  // 5. Carregamento dos Sprites e Animações
+  const spriteAssets = {
+    idle: ['player.png', 'player-b.png'],
+    run_right: ['player-run-right-a.png', 'player-run-right-b.png'],
+    run_left: ['player-run-left-a.png', 'player-run-left-b.png']
+  };
+
+  const spriteTextures = {
     idle: [],
     run_right: [],
     run_left: []
+  };
+
+  const textureLoader = new THREE.TextureLoader();
+  let baseAspectRatioCalculated = false;
+
+  for (const state in spriteAssets) {
+    spriteAssets[state].forEach((path, idx) => {
+      textureLoader.load(path, (tex) => {
+        tex.generateMipmaps = true;
+        tex.minFilter = THREE.LinearMipmapLinearFilter;
+        tex.magFilter = THREE.LinearFilter;
+        spriteTextures[state][idx] = tex;
+
+        if (!baseAspectRatioCalculated && tex.image && tex.image.naturalWidth) {
+          baseAspectRatioCalculated = true;
+          const aspect = tex.image.naturalWidth / tex.image.naturalHeight;
+          playerWidth = PLAYER_HEIGHT * aspect;
+          if (playerMesh) {
+            playerMesh.geometry.dispose();
+            playerMesh.geometry = new THREE.PlaneGeometry(playerWidth, PLAYER_HEIGHT);
+          }
+        }
+
+        // Ativa o primeiro frame se o mesh ainda não tiver textura
+        if (state === 'idle' && idx === 0 && playerMesh && !playerMesh.material.map) {
+          playerMesh.material.map = tex;
+          playerMesh.material.needsUpdate = true;
+        }
+      });
+    });
   }
-};
 
-// Carregamento organizado dos conjuntos de animação
-const spriteAssets = {
-  idle: ['player.png', 'player-b.png'],
-  run_right: ['player-run-right-a.png', 'player-run-right-b.png'],
-  run_left: ['player-run-left-a.png', 'player-run-left-b.png']
-};
+  // 6. Estado de Movimentação, Física e Câmera
+  const velocity = new THREE.Vector3();
+  const inputVector = new THREE.Vector2();
+  let targetPosition = null;
+  let isMoving = false;
+  let facingRight = true;
 
-let baseAspectRatioSet = false;
+  // Timers procedurais
+  let walkClock = 0;
+  let idleClock = 0;
+  let animState = 'idle';
+  let animTimer = 0;
+  let currentFrameIndex = 0;
+  let moveDuration = 0;
+  let dustSpawnTimer = 0;
 
-function loadAsset(src) {
-  const img = new Image();
-  img.src = src;
-  img.onload = () => {
-    if (!baseAspectRatioSet) {
-      baseAspectRatioSet = true;
-      const naturalW = img.naturalWidth || 512;
-      const naturalH = img.naturalHeight || 512;
-      const aspect = naturalW / naturalH;
-      player.height = player.baseHeight;
-      player.width = player.baseHeight * aspect;
-      console.log(`Asset base carregado! Aspect ratio: ${aspect.toFixed(2)} (${player.width}x${player.height})`);
+  // Zoom Dinâmico Suave
+  let currentZoom = 1.0;
+  let targetZoom = 1.0;
+  const MIN_ZOOM = 0.55;
+  const MAX_ZOOM = 2.4;
+
+  // 7. Controles de Entrada (Teclado, Joystick, Clique)
+  const keys = {
+    w: false, s: false, a: false, d: false,
+    up: false, down: false, left: false, right: false
+  };
+
+  window.addEventListener('keydown', (e) => {
+    const k = e.key.toLowerCase();
+    if (k === 'w' || e.code === 'ArrowUp') keys.up = true;
+    if (k === 's' || e.code === 'ArrowDown') keys.down = true;
+    if (k === 'a' || e.code === 'ArrowLeft') keys.left = true;
+    if (k === 'd' || e.code === 'ArrowRight') keys.right = true;
+
+    if (keys.up || keys.down || keys.left || keys.right) {
+      targetPosition = null; // Teclado anula destino de clique
     }
-  };
-  return img;
-}
 
-// Carrega todas as listas de frames
-for (const state in spriteAssets) {
-  player.animations[state] = spriteAssets[state].map(src => loadAsset(src));
-}
+    // Atalhos de Zoom no Teclado
+    if (e.key === '+' || e.key === '=' || e.code === 'NumpadAdd') {
+      targetZoom = Math.min(MAX_ZOOM, targetZoom + 0.25);
+    } else if (e.key === '-' || e.key === '_' || e.code === 'NumpadSubtract') {
+      targetZoom = Math.max(MIN_ZOOM, targetZoom - 0.25);
+    } else if (e.key === '0' || e.code === 'Numpad0') {
+      targetZoom = 1.0;
+    }
+  });
 
-// Sistema de Câmera com Zoom Dinâmico e Suave
-const camera = {
-  x: 0,
-  y: 0,
-  zoom: 1.85,        // Zoom padrão inicial mais próximo e aconchegante
-  targetZoom: 1.85,  // Alvo para interpolação suave de zoom
-  minZoom: 0.7,      // Zoom out máximo
-  maxZoom: 3.5,      // Zoom in máximo
-  smoothFactor: 0.08,// Câmera suave ao seguir
-  zoomSpeed: 0.12    // Suavidade da transição de zoom
-};
+  window.addEventListener('keyup', (e) => {
+    const k = e.key.toLowerCase();
+    if (k === 'w' || e.code === 'ArrowUp') keys.up = false;
+    if (k === 's' || e.code === 'ArrowDown') keys.down = false;
+    if (k === 'a' || e.code === 'ArrowLeft') keys.left = false;
+    if (k === 'd' || e.code === 'ArrowRight') keys.right = false;
+  });
 
-// Estado dos Controles
-const keys = {
-  KeyW: false, KeyA: false, KeyS: false, KeyD: false,
-  ArrowUp: false, ArrowLeft: false, ArrowDown: false, ArrowRight: false
-};
+  // Zoom pela Roda do Mouse (Scroll)
+  window.addEventListener('wheel', (e) => {
+    const factor = e.deltaY < 0 ? 0.18 : -0.18;
+    targetZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, targetZoom + factor));
+  }, { passive: true });
 
-let clickTarget = null; // Para toque/clique direto na tela ("ir até onde clicou")
+  // Botões de Zoom no HUD
+  document.getElementById('btnZoomIn')?.addEventListener('pointerdown', (e) => {
+    e.stopPropagation();
+    targetZoom = Math.min(MAX_ZOOM, targetZoom + 0.3);
+  });
+  document.getElementById('btnZoomOut')?.addEventListener('pointerdown', (e) => {
+    e.stopPropagation();
+    targetZoom = Math.max(MIN_ZOOM, targetZoom - 0.3);
+  });
+  document.getElementById('btnZoomReset')?.addEventListener('pointerdown', (e) => {
+    e.stopPropagation();
+    targetZoom = 1.0;
+  });
 
-// 1. Controles de Teclado (Movimento + Atalhos de Zoom)
-window.addEventListener('keydown', (e) => {
-  if (keys[e.code] !== undefined) {
-    keys[e.code] = true;
-    clickTarget = null; // Cancela clique se usar teclado
+  // Joystick Virtual Mobile
+  const joystickZone = document.getElementById('joystickZone');
+  const joystickBase = document.getElementById('joystickBase');
+  const joystickKnob = document.getElementById('joystickKnob');
+
+  let joystickActive = false;
+  let joystickVector = { x: 0, y: 0 };
+  const maxJoystickDistance = 45;
+  let joystickTouchId = null;
+
+  function updateJoystickPosition(clientX, clientY) {
+    if (!joystickBase) return;
+    const rect = joystickBase.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+
+    let dx = clientX - centerX;
+    let dy = clientY - centerY;
+    let dist = Math.hypot(dx, dy);
+
+    if (dist > maxJoystickDistance) {
+      dx = (dx / dist) * maxJoystickDistance;
+      dy = (dy / dist) * maxJoystickDistance;
+    }
+
+    joystickKnob.style.transform = `translate(${dx}px, ${dy}px)`;
+    joystickVector = {
+      x: dx / maxJoystickDistance,
+      y: dy / maxJoystickDistance
+    };
   }
 
-  // Atalhos de Zoom no Teclado
-  if (e.key === '+' || e.key === '=' || e.code === 'NumpadAdd') {
-    camera.targetZoom = Math.min(camera.maxZoom, camera.targetZoom + 0.25);
-  } else if (e.key === '-' || e.key === '_' || e.code === 'NumpadSubtract') {
-    camera.targetZoom = Math.max(camera.minZoom, camera.targetZoom - 0.25);
-  } else if (e.key === '0' || e.code === 'Numpad0') {
-    camera.targetZoom = 1.85; // Redefinir para padrão
-  }
-});
-
-window.addEventListener('keyup', (e) => {
-  if (keys[e.code] !== undefined) {
-    keys[e.code] = false;
-  }
-});
-
-// Zoom pela Roda do Mouse (Scroll)
-window.addEventListener('wheel', (e) => {
-  const zoomFactor = e.deltaY < 0 ? 0.18 : -0.18;
-  camera.targetZoom = Math.max(camera.minZoom, Math.min(camera.maxZoom, camera.targetZoom + zoomFactor));
-}, { passive: true });
-
-// Botões na Tela (Desktop & Mobile)
-document.getElementById('btnZoomIn')?.addEventListener('pointerdown', (e) => {
-  e.stopPropagation();
-  camera.targetZoom = Math.min(camera.maxZoom, camera.targetZoom + 0.3);
-});
-document.getElementById('btnZoomOut')?.addEventListener('pointerdown', (e) => {
-  e.stopPropagation();
-  camera.targetZoom = Math.max(camera.minZoom, camera.targetZoom - 0.3);
-});
-document.getElementById('btnZoomReset')?.addEventListener('pointerdown', (e) => {
-  e.stopPropagation();
-  camera.targetZoom = 1.85;
-});
-
-// 2. Controles de Clique / Toque no Mundo
-window.addEventListener('pointerdown', (e) => {
-  // Ignora se o toque foi em cima do joystick ou controles de zoom
-  if (e.target.closest('#joystickZone') || e.target.closest('#zoomControls')) return;
-
-  // Converte a coordenada da tela para coordenada do mundo usando a câmera E o ZOOM atual
-  const screenX = e.clientX;
-  const screenY = e.clientY;
-  const worldX = (screenX - width / 2) / camera.zoom + camera.x;
-  const worldY = (screenY - height / 2) / (camera.zoom * Y_SQUISH) + camera.y;
-
-  clickTarget = { x: worldX, y: worldY };
-});
-
-// 3. Joystick Virtual Fluido
-const joystickZone = document.getElementById('joystickZone');
-const joystickBase = document.getElementById('joystickBase');
-const joystickKnob = document.getElementById('joystickKnob');
-
-let joystickActive = false;
-let joystickVector = { x: 0, y: 0 };
-const maxDistance = 45; // Raio máximo de puxada do joystick em px
-let joystickTouchId = null;
-
-function updateJoystickPosition(clientX, clientY) {
-  const rect = joystickBase.getBoundingClientRect();
-  const centerX = rect.left + rect.width / 2;
-  const centerY = rect.top + rect.height / 2;
-
-  let dx = clientX - centerX;
-  let dy = clientY - centerY;
-  let dist = Math.hypot(dx, dy);
-
-  if (dist > maxDistance) {
-    dx = (dx / dist) * maxDistance;
-    dy = (dy / dist) * maxDistance;
-    dist = maxDistance;
+  function resetJoystick() {
+    joystickActive = false;
+    joystickTouchId = null;
+    joystickVector = { x: 0, y: 0 };
+    if (joystickKnob) joystickKnob.style.transform = 'translate(0px, 0px)';
   }
 
-  joystickKnob.style.transform = `translate(${dx}px, ${dy}px)`;
-  joystickVector = {
-    x: dx / maxDistance,
-    y: dy / maxDistance
-  };
-}
+  if (joystickZone) {
+    joystickZone.addEventListener('pointerdown', (e) => {
+      joystickActive = true;
+      joystickTouchId = e.pointerId;
+      joystickZone.setPointerCapture(e.pointerId);
+      updateJoystickPosition(e.clientX, e.clientY);
+      targetPosition = null;
+    });
 
-function resetJoystick() {
-  joystickActive = false;
-  joystickTouchId = null;
-  joystickVector = { x: 0, y: 0 };
-  joystickKnob.style.transform = 'translate(0px, 0px)';
-}
+    joystickZone.addEventListener('pointermove', (e) => {
+      if (joystickActive && e.pointerId === joystickTouchId) {
+        updateJoystickPosition(e.clientX, e.clientY);
+      }
+    });
 
-joystickZone.addEventListener('pointerdown', (e) => {
-  joystickActive = true;
-  joystickTouchId = e.pointerId;
-  joystickZone.setPointerCapture(e.pointerId);
-  updateJoystickPosition(e.clientX, e.clientY);
-  clickTarget = null;
-});
+    joystickZone.addEventListener('pointerup', (e) => {
+      if (e.pointerId === joystickTouchId) resetJoystick();
+    });
 
-joystickZone.addEventListener('pointermove', (e) => {
-  if (joystickActive && e.pointerId === joystickTouchId) {
-    updateJoystickPosition(e.clientX, e.clientY);
-  }
-});
-
-joystickZone.addEventListener('pointerup', (e) => {
-  if (e.pointerId === joystickTouchId) resetJoystick();
-});
-
-joystickZone.addEventListener('pointercancel', (e) => {
-  if (e.pointerId === joystickTouchId) resetJoystick();
-});
-
-// Loop Principal de Atualização
-let lastTime = performance.now();
-
-function update(deltaTime) {
-  let moveX = 0;
-  let moveY = 0;
-
-  // Entrada: Teclado
-  if (keys.KeyW || keys.ArrowUp) moveY -= 1;
-  if (keys.KeyS || keys.ArrowDown) moveY += 1;
-  if (keys.KeyA || keys.ArrowLeft) moveX -= 1;
-  if (keys.KeyD || keys.ArrowRight) moveX += 1;
-
-  // Entrada: Joystick
-  if (joystickActive && (Math.abs(joystickVector.x) > 0.05 || Math.abs(joystickVector.y) > 0.05)) {
-    moveX = joystickVector.x;
-    moveY = joystickVector.y;
+    joystickZone.addEventListener('pointercancel', (e) => {
+      if (e.pointerId === joystickTouchId) resetJoystick();
+    });
   }
 
-  // Normalização do vetor de movimento
-  const inputMagnitude = Math.hypot(moveX, moveY);
-  if (inputMagnitude > 0.05) {
-    clickTarget = null; // Anula alvo de clique se o jogador interagir com teclas/joystick
-    const factor = inputMagnitude > 1 ? 1 / inputMagnitude : 1;
-    // O movimento no eixo Y é ligeiramente adaptado para a perspectiva do chão (velocidade aparente correta)
-    player.vx += (moveX * factor) * player.speed * 8 * deltaTime;
-    player.vy += (moveY * factor) * player.speed * 8 * deltaTime;
+  // Clique / Toque no Chão via Raycaster
+  const raycaster = new THREE.Raycaster();
+  const mousePointer = new THREE.Vector2();
 
-    // Define direção da folha de papel (1 = Direita, -1 = Esquerda)
-    if (moveX > 0.1) player.facingDir = 1;
-    else if (moveX < -0.1) player.facingDir = -1;
-  } else if (clickTarget) {
-    // Movimento por Clique / Toque na Tela
-    const distTargetX = clickTarget.x - player.x;
-    const distTargetY = clickTarget.y - player.y;
-    const distTarget = Math.hypot(distTargetX, distTargetY);
+  window.addEventListener('pointerdown', (e) => {
+    // Ignora cliques que não sejam o botão principal (botão esquerdo / toque)
+    if (e.button !== undefined && e.button !== 0) return;
 
-    if (distTarget > 6) {
-      const dirX = distTargetX / distTarget;
-      const dirY = distTargetY / distTarget;
-      player.vx += dirX * player.speed * 8 * deltaTime;
-      player.vy += dirY * player.speed * 8 * deltaTime;
+    // Ignora cliques no joystick ou controles de zoom
+    if (e.target.closest('#joystickZone') || e.target.closest('#zoomControls')) return;
 
-      if (dirX > 0.1) player.facingDir = 1;
-      else if (dirX < -0.1) player.facingDir = -1;
+    mousePointer.x = (e.clientX / window.innerWidth) * 2 - 1;
+    mousePointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+    raycaster.setFromCamera(mousePointer, camera);
+    const intersects = raycaster.intersectObject(groundPlane);
+
+    if (intersects.length > 0) {
+      const p = intersects[0].point;
+      targetPosition = new THREE.Vector3(p.x, 0, p.z);
+
+      // Posiciona e dispara animação expansiva do marcador verde botânico
+      clickMarkerMesh.position.x = p.x;
+      clickMarkerMesh.position.z = p.z;
+      clickMarkerMesh.material.opacity = 0.85;
+      clickMarkerMesh.scale.set(0.6, 0.6, 0.6);
+    }
+  });
+
+  // Redimensionamento e Enquadramento Responsivo
+  function onResize() {
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    const aspect = width / height;
+    camera.aspect = aspect;
+
+    // Enquadramento dinâmico por perfil de tela
+    if (aspect < 0.85) {
+      // Mobile vertical
+      camera.fov = 48;
+      camOffsetY = 8.6;
+      camOffsetZ = 11.0;
+    } else if (aspect < 1.25) {
+      // Tablet ou quadrado
+      camera.fov = 44;
+      camOffsetY = 8.0;
+      camOffsetZ = 10.2;
     } else {
-      clickTarget = null;
+      // Desktop / notebook widescreen
+      camera.fov = 40;
+      camOffsetY = 7.5;
+      camOffsetZ = 9.5;
     }
+
+    camera.updateProjectionMatrix();
+    renderer.setSize(width, height);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   }
+  window.addEventListener('resize', onResize);
+  onResize();
 
-  // Aplicação da física e inércia fluida
-  player.vx *= Math.pow(player.friction, deltaTime * 60);
-  player.vy *= Math.pow(player.friction, deltaTime * 60);
+  // 8. Loop Principal de Atualização do Jogador
+  function updatePlayer(delta) {
+    inputVector.set(0, 0);
 
-  // Limite de velocidade máxima
-  const speedCurrent = Math.hypot(player.vx, player.vy);
-  if (speedCurrent > player.speed) {
-    player.vx = (player.vx / speedCurrent) * player.speed;
-    player.vy = (player.vy / speedCurrent) * player.speed;
-  }
+    // Entrada: Teclado
+    if (keys.left) inputVector.x -= 1;
+    if (keys.right) inputVector.x += 1;
+    if (keys.up) inputVector.y -= 1;
+    if (keys.down) inputVector.y += 1;
 
-  player.x += player.vx * deltaTime;
-  player.y += player.vy * deltaTime;
+    // Entrada: Joystick
+    if (joystickActive && (Math.abs(joystickVector.x) > 0.05 || Math.abs(joystickVector.y) > 0.05)) {
+      inputVector.x = joystickVector.x;
+      inputVector.y = joystickVector.y;
+    }
 
-  // Atualiza estado de movimento e animação
-  player.moving = speedCurrent > 15;
+    const inputMag = inputVector.length();
+    if (inputMag > 0.05) {
+      targetPosition = null;
+      const factor = inputMag > 1 ? 1 / inputMag : 1;
+      velocity.x = inputVector.x * factor * SPEED;
+      velocity.z = inputVector.y * factor * SPEED;
+      isMoving = true;
+    } else if (targetPosition) {
+      // Entrada: Clique no Solo
+      const diffX = targetPosition.x - playerGroup.position.x;
+      const diffZ = targetPosition.z - playerGroup.position.z;
+      const dist = Math.hypot(diffX, diffZ);
 
-  let targetState = 'idle';
-  if (player.moving) {
-    targetState = player.facingDir === -1 ? 'run_left' : 'run_right';
-  }
+      if (dist > 0.12) {
+        velocity.x = (diffX / dist) * SPEED;
+        velocity.z = (diffZ / dist) * SPEED;
+        isMoving = true;
+      } else {
+        targetPosition = null;
+        velocity.set(0, 0, 0);
+        isMoving = false;
+      }
+    } else {
+      velocity.set(0, 0, 0);
+      isMoving = false;
+    }
 
-  // Se mudou de estado (ex: de parado para correndo), reseta o timer para o primeiro frame responder imediatamente
-  if (player.animState !== targetState) {
-    player.animState = targetState;
-    player.animTimer = 0;
-    player.currentFrameIndex = 0;
-  }
+    // Atualiza posição do jogador
+    if (isMoving) {
+      playerGroup.position.x += velocity.x * delta;
+      playerGroup.position.z += velocity.z * delta;
 
-  const currentAnimList = player.animations[player.animState] || [];
+      // Direção do personagem
+      if (velocity.x < -0.15) facingRight = false;
+      if (velocity.x > 0.15) facingRight = true;
 
-  if (player.moving) {
-    // Andando/Correndo: ritmo dinâmico dos passos
-    player.bobTimer += deltaTime * 12;
-    player.animTimer += deltaTime;
-    const runFrameInterval = 0.14; // ~7 frames/segundo (corrida viva e fluida)
-    if (player.animTimer >= runFrameInterval) {
-      player.animTimer = 0;
-      if (currentAnimList.length > 0) {
-        player.currentFrameIndex = (player.currentFrameIndex + 1) % currentAnimList.length;
+      // Partículas de corrida (FX) após 0.9s de movimento contínuo
+      moveDuration += delta;
+      if (moveDuration >= DUST_TRIGGER_TIME) {
+        dustSpawnTimer += delta;
+        if (dustSpawnTimer >= DUST_SPAWN_INTERVAL) {
+          dustSpawnTimer = 0;
+          const normDirX = velocity.x !== 0 ? Math.sign(velocity.x) : (facingRight ? 1 : -1);
+          const normDirZ = velocity.z !== 0 ? Math.sign(velocity.z) : 0;
+          spawnDustParticle(playerGroup.position.x, playerGroup.position.z, normDirX, normDirZ);
+        }
+      }
+    } else {
+      moveDuration = 0;
+      dustSpawnTimer = 0;
+    }
+
+    // Seleção de Estado de Animação
+    let targetAnimState = 'idle';
+    if (isMoving) {
+      targetAnimState = facingRight ? 'run_right' : 'run_left';
+    }
+
+    if (animState !== targetAnimState) {
+      animState = targetAnimState;
+      animTimer = 0;
+      currentFrameIndex = 0;
+    }
+
+    // Animação de Passos, Pulinho e Sombra
+    if (playerMesh) {
+      const activeAnimFrames = spriteTextures[animState] || [];
+      const isDedicatedDir = (animState === 'run_left' || animState === 'run_right');
+      const scaleX = isDedicatedDir ? 1 : (facingRight ? 1 : -1);
+      playerMesh.scale.x = scaleX;
+
+      if (isMoving) {
+        walkClock += delta * 12;
+
+        // Troca de frames na corrida (~7 fps / 0.14s)
+        if (activeAnimFrames.length > 1) {
+          animTimer += delta;
+          if (animTimer >= 0.14) {
+            animTimer = 0;
+            currentFrameIndex = (currentFrameIndex + 1) % activeAnimFrames.length;
+          }
+        } else {
+          currentFrameIndex = 0;
+        }
+
+        const currentTex = activeAnimFrames[currentFrameIndex] || spriteTextures.idle[0];
+        if (currentTex && playerMesh.material.map !== currentTex) {
+          playerMesh.material.map = currentTex;
+          playerMesh.material.needsUpdate = true;
+        }
+
+        // Pulo dinâmico de passo & inclinação de caminhada
+        const stepHop = Math.abs(Math.sin(walkClock)) * 0.14;
+        playerMesh.position.y = BASE_Y + stepHop;
+        playerMesh.rotation.z = Math.sin(walkClock) * (facingRight ? -0.05 : 0.05);
+
+        // Sombra pulsa em escala inversa com os pés
+        if (shadowMesh) {
+          const sScale = 1 - (stepHop * 1.2);
+          shadowMesh.scale.set(sScale, sScale, sScale);
+        }
+      } else {
+        // Modo Parado (Idle): Microanimação de Respiração Suave
+        idleClock += delta * 2.2;
+        playerMesh.position.y = BASE_Y + Math.sin(idleClock) * 0.025;
+        playerMesh.rotation.z = 0;
+
+        if (shadowMesh) {
+          shadowMesh.scale.set(1, 1, 1);
+        }
+
+        // Troca sutil entre os frames de idle (~0.75s)
+        const idleFrames = spriteTextures.idle || [];
+        if (idleFrames.length > 1) {
+          animTimer += delta;
+          if (animTimer >= 0.75) {
+            animTimer = 0;
+            currentFrameIndex = (currentFrameIndex + 1) % idleFrames.length;
+          }
+        } else {
+          currentFrameIndex = 0;
+        }
+
+        const currentTex = idleFrames[currentFrameIndex];
+        if (currentTex && playerMesh.material.map !== currentTex) {
+          playerMesh.material.map = currentTex;
+          playerMesh.material.needsUpdate = true;
+        }
       }
     }
-  } else {
-    // Parado (Idle): respiração suave e troca sutil entre os frames idle
-    player.bobTimer += (0 - (player.bobTimer % (Math.PI * 2))) * 0.1;
-    player.animTimer += deltaTime;
-    const idleFrameInterval = 0.75; // troca sutil a cada 0.75s
-    if (player.animTimer >= idleFrameInterval) {
-      player.animTimer = 0;
-      if (currentAnimList.length > 0) {
-        player.currentFrameIndex = (player.currentFrameIndex + 1) % currentAnimList.length;
-      }
+
+    // Efeito de onda e desaparecimento suave do marcador de clique
+    if (clickMarkerMesh && clickMarkerMesh.material.opacity > 0) {
+      clickMarkerMesh.material.opacity = Math.max(0, clickMarkerMesh.material.opacity - delta * 1.5);
+      const s = clickMarkerMesh.scale.x + delta * 0.8;
+      clickMarkerMesh.scale.set(s, s, s);
     }
   }
 
-  // Transição do efeito de virar a folha (flipScaleX de -1 a 1 suavemente)
-  player.flipScaleX += (player.facingDir - player.flipScaleX) * 0.25;
+  // 9. Atualização da Câmera (LERP Zen & Zoom Suave)
+  function updateCamera(delta) {
+    // Interpolação de Zoom
+    currentZoom += (targetZoom - currentZoom) * 0.1;
+    camera.zoom = currentZoom;
+    camera.updateProjectionMatrix();
 
-  // Interpolação suave do zoom e da câmera
-  camera.zoom += (camera.targetZoom - camera.zoom) * camera.zoomSpeed;
-  camera.x += (player.x - camera.x) * camera.smoothFactor;
-  camera.y += (player.y - camera.y) * camera.smoothFactor;
+    // LERP suave seguindo o jogador (amortecimento elástico 0.08)
+    const targetCamX = playerGroup.position.x;
+    const targetCamZ = playerGroup.position.z + camOffsetZ;
+    const targetCamY = camOffsetY;
 
-  // Atualiza HUD com coordenadas e nível atual de zoom
-  posDisplay.textContent = `X: ${Math.round(player.x)} | Y: ${Math.round(player.y)} | Zoom: ${camera.zoom.toFixed(1)}x`;
-}
+    camera.position.x += (targetCamX - camera.position.x) * 0.08;
+    camera.position.z += (targetCamZ - camera.position.z) * 0.08;
+    camera.position.y = targetCamY;
 
-// Renderização
-function render() {
-  // Limpa com tela toda branca
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, width, height);
+    // Foco ligeiramente acima do solo (Y = 1.0)
+    camera.lookAt(camera.position.x, 1.0, camera.position.z - camOffsetZ);
 
-  ctx.save();
-  // Centraliza no meio da tela e aplica a escala de ZOOM dinâmico
-  ctx.translate(width / 2, height / 2);
-  ctx.scale(camera.zoom, camera.zoom);
+    // Chão infinito segue a posição do jogador de forma transparente
+    groundPlane.position.x = playerGroup.position.x;
+    groundPlane.position.z = playerGroup.position.z;
+    marksPlane.position.x = playerGroup.position.x;
+    marksPlane.position.z = playerGroup.position.z;
+    if (marksPlane.material.map) {
+      marksPlane.material.map.offset.x = (playerGroup.position.x / 350) * 70;
+      marksPlane.material.map.offset.y = -(playerGroup.position.z / 350) * 70;
+    }
 
-  // 1. CHÃO COM PERSPECTIVA (grade suave no plano 3D/2.5D)
-  ctx.save();
-  ctx.scale(1, Y_SQUISH); // Achata o plano horizontal criando perspectiva de piso inclinado
-  ctx.translate(-camera.x, -camera.y);
-
-  drawSubtleGroundMarks();
-
-  // Desenha o marcador de clique no chão achatado em perspectiva
-  if (clickTarget) {
-    ctx.beginPath();
-    ctx.ellipse(clickTarget.x, clickTarget.y, 14, 8, 0, 0, Math.PI * 2);
-    ctx.strokeStyle = '#cccccc';
-    ctx.lineWidth = 1.8;
-    ctx.setLineDash([4, 4]);
-    ctx.stroke();
-    ctx.setLineDash([]);
-  }
-
-  // 2. SOMBRA PROJETADA NO CHÃO (Muito sutil, achatada na mesma inclinação da perspectiva)
-  const shadowScale = 1 - Math.abs(Math.sin(player.bobTimer)) * 0.08;
-  const shadowRadiusX = (player.width * 0.44) * shadowScale;
-  const shadowRadiusY = (player.width * 0.14) * shadowScale; // Mais fina para acompanhar a maior inclinação do chão
-
-  ctx.save();
-  ctx.translate(player.x, player.y + 2);
-  ctx.scale(1, shadowRadiusY / shadowRadiusX);
-
-  const shadowGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, shadowRadiusX);
-  shadowGrad.addColorStop(0, 'rgba(0, 0, 0, 0.09)');   // Centro bem sutil
-  shadowGrad.addColorStop(0.5, 'rgba(0, 0, 0, 0.035)'); // Difusão suave
-  shadowGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');      // Transparência total nas bordas
-
-  ctx.beginPath();
-  ctx.arc(0, 0, shadowRadiusX, 0, Math.PI * 2);
-  ctx.fillStyle = shadowGrad;
-  ctx.fill();
-  ctx.restore();
-
-  ctx.restore(); // Fecha o espaço do chão
-
-  // 3. PERSONAGEM EM PÉ (RECORTADO COMO PAPEL / BILLBOARD)
-  // Calculamos a posição na tela: o pé do personagem fica exatamente no ponto (player.x, player.y * Y_SQUISH)
-  const screenFeetX = (player.x - camera.x);
-  const screenFeetY = (player.y - camera.y) * Y_SQUISH;
-
-  ctx.save();
-  ctx.translate(screenFeetX, screenFeetY);
-
-  // Balanço Paper Mario: leve pulinho e inclinação ao andar
-  const walkBobY = player.moving ? -Math.abs(Math.sin(player.bobTimer)) * 6 : 0;
-  const walkTilt = player.moving ? Math.sin(player.bobTimer) * 0.05 * player.facingDir : 0;
-
-  ctx.translate(0, walkBobY);
-  ctx.rotate(walkTilt);
-  // Se o estado for 'idle', usa o flip suave (player.flipScaleX).
-  // Se estiver correndo e houver sprites desenhados especificamente para esquerda/direita, renderiza na orientação original desenhada (1).
-  const isDedicatedDirSprite = (player.animState === 'run_left' || player.animState === 'run_right');
-  const renderScaleX = isDedicatedDirSprite ? 1 : player.flipScaleX;
-  ctx.scale(renderScaleX, 1);
-
-  // Obtém a lista de frames da animação ativa (idle, run_right, run_left)
-  const animList = player.animations[player.animState] || [];
-  const readyFrames = animList.filter(f => f && f.complete && f.naturalWidth > 0);
-
-  // Fallback: se a lista específica não tiver carregado ainda, tenta usar os frames de idle
-  const fallbackFrames = (player.animations.idle || []).filter(f => f && f.complete && f.naturalWidth > 0);
-  const activeFrame = (readyFrames.length > 0) 
-    ? readyFrames[player.currentFrameIndex % readyFrames.length] 
-    : (fallbackFrames.length > 0 ? fallbackFrames[0] : null);
-
-  if (activeFrame) {
-    // Desenha o frame ativo do loop, perfeitamente ancorado pela base dos pés e com proporção original
-    ctx.drawImage(
-      activeFrame,
-      -player.width / 2,
-      -player.height,
-      player.width,
-      player.height
-    );
-  } else {
-    // Placeholder estilizado Paper Mario (recorte plano com traço preto marcante)
-    drawPaperMarioPlaceholder();
-  }
-
-  ctx.restore(); // Fecha o espaço do personagem
-  ctx.restore(); // Fecha viewport principal
-}
-
-// Desenha o avatar temporário estilizado de papel recortado
-function drawPaperMarioPlaceholder() {
-  const w = player.width;
-  const h = player.height;
-
-  // Borda branca grossa de adesivo recortado (sticker cut) típica de Paper Mario
-  ctx.fillStyle = '#ffffff';
-  ctx.strokeStyle = '#1e293b';
-  ctx.lineWidth = 3.5;
-  ctx.lineJoin = 'round';
-  ctx.lineCap = 'round';
-
-  // Corpo / Camisa
-  ctx.beginPath();
-  ctx.roundRect(-w / 2.4, -h * 0.65, w / 1.2, h * 0.65, [14, 14, 6, 6]);
-  ctx.fillStyle = '#2563eb';
-  ctx.fill();
-  ctx.stroke();
-
-  // Cabeça
-  ctx.beginPath();
-  ctx.arc(0, -h * 0.72, w / 2.5, 0, Math.PI * 2);
-  ctx.fillStyle = '#fed7aa'; // Tom de pele recortado
-  ctx.fill();
-  ctx.stroke();
-
-  // Chapéu / Cabelo recortado
-  ctx.beginPath();
-  ctx.arc(0, -h * 0.78, w / 2.3, Math.PI, 0);
-  ctx.fillStyle = '#dc2626'; // Vermelho vibrante
-  ctx.fill();
-  ctx.stroke();
-
-  // Aba do boné
-  ctx.beginPath();
-  ctx.ellipse(w * 0.2, -h * 0.77, w * 0.28, 6, 0.1, 0, Math.PI * 2);
-  ctx.fillStyle = '#b91c1c';
-  ctx.fill();
-  ctx.stroke();
-
-  // Olho estilo cartoon Paper Mario
-  ctx.beginPath();
-  ctx.ellipse(w * 0.16, -h * 0.73, 4.5, 7.5, 0, 0, Math.PI * 2);
-  ctx.fillStyle = '#0f172a';
-  ctx.fill();
-
-  // Brilho do olho
-  ctx.beginPath();
-  ctx.arc(w * 0.18, -h * 0.75, 2, 0, Math.PI * 2);
-  ctx.fillStyle = '#ffffff';
-  ctx.fill();
-
-  // Nariz fofo
-  ctx.beginPath();
-  ctx.arc(w * 0.32, -h * 0.7, 5, 0, Math.PI * 2);
-  ctx.fillStyle = '#fca5a5';
-  ctx.fill();
-  ctx.stroke();
-}
-
-// Pequenas referências no chão para dar sensação de profundidade e movimento na tela branca
-function drawSubtleGroundMarks() {
-  const gridSize = 140;
-  // Expande a área visível dividindo pelo zoom para cobrir todo o viewport em qualquer nível de aproximação
-  const viewSpanX = (width / camera.zoom) * 0.7;
-  const viewSpanY = (height / (camera.zoom * Y_SQUISH)) * 0.7;
-
-  const startX = Math.floor((camera.x - viewSpanX) / gridSize) * gridSize;
-  const endX = Math.ceil((camera.x + viewSpanX) / gridSize) * gridSize;
-  const startY = Math.floor((camera.y - viewSpanY) / gridSize) * gridSize;
-  const endY = Math.ceil((camera.y + viewSpanY) / gridSize) * gridSize;
-
-  // Marcas sutis e elegantes no chão infinito
-  ctx.strokeStyle = '#e9eaec';
-  ctx.lineWidth = 1.4;
-
-  for (let gx = startX; gx <= endX; gx += gridSize) {
-    for (let gy = startY; gy <= endY; gy += gridSize) {
-      ctx.beginPath();
-      ctx.moveTo(gx - 5, gy);
-      ctx.lineTo(gx + 5, gy);
-      ctx.moveTo(gx, gy - 5);
-      ctx.lineTo(gx, gy + 5);
-      ctx.stroke();
+    // Atualiza HUD
+    if (posDisplay) {
+      posDisplay.textContent = `X: ${playerGroup.position.x.toFixed(1)} | Z: ${playerGroup.position.z.toFixed(1)} | Zoom: ${currentZoom.toFixed(1)}x`;
     }
   }
-}
 
-// Game Loop com Delta Time
-function gameLoop(currentTime) {
-  const deltaTime = Math.min((currentTime - lastTime) / 1000, 0.1); // Trava no máx 100ms para evitar saltos
-  lastTime = currentTime;
+  // 10. Loop de Renderização
+  const clock = new THREE.Clock();
 
-  update(deltaTime);
-  render();
+  function renderLoop() {
+    const delta = Math.min(clock.getDelta(), 0.1);
 
-  requestAnimationFrame(gameLoop);
-}
+    updatePlayer(delta);
+    updateParticles(delta);
+    updateCamera(delta);
 
-requestAnimationFrame((time) => {
-  lastTime = time;
-  gameLoop(time);
-});
+    renderer.render(scene, camera);
+
+    requestAnimationFrame(renderLoop);
+  }
+
+  requestAnimationFrame(renderLoop);
+})();

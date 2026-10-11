@@ -11,7 +11,7 @@ html, body {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background-color: #ffffff; /* Fundo todo branco como solicitado */
+  background-color: #fcfbf8; /* Branco quente orgânico em harmonia com a névoa e o horizonte infinito */
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   touch-action: none; /* Previne scroll e zoom acidental em mobile */
 }

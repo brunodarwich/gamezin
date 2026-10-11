@@ -4,7 +4,7 @@
   "start_url": "./index.html",
   "display": "fullscreen",
   "orientation": "any",
-  "background_color": "#ffffff",
-  "theme_color": "#ffffff",
-  "description": "Jogo 2D multiplataforma com tela branca e controles fluidos"
+  "background_color": "#fcfbf8",
+  "theme_color": "#fcfbf8",
+  "description": "Jogo 2.5D multiplataforma com perspectiva isométrica suave e horizonte infinito"
 }
