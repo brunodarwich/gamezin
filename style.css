@@ -92,6 +92,64 @@ html, body {
   font-size: 12px;
 }
 
+/* Grupo de Controles da Direita no HUD */
+#hudRightGroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  pointer-events: auto; /* Permite clicar/tocar */
+}
+
+/* Badge Discreto do Contador de Visitas */
+.visitor-badge {
+  display: flex;
+  align-items: center;
+}
+
+.visitor-btn {
+  background: rgba(245, 245, 245, 0.88);
+  border: 1px solid #d4d4d8;
+  color: #3f3f46;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+  font-family: inherit;
+}
+
+.visitor-btn:hover {
+  background: #ffffff;
+  border-color: #a1a1aa;
+  color: #18181b;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.visitor-btn:hover .eye-icon {
+  color: #285437;
+  transform: scale(1.18);
+}
+
+.visitor-btn:active {
+  transform: scale(0.96);
+  background: #e4e4e7;
+}
+
+.eye-icon {
+  color: #526356;
+  transition: transform 0.2s ease, color 0.2s ease;
+  flex-shrink: 0;
+}
+
 /* Controles de Zoom */
 #zoomControls {
   display: flex;
@@ -212,6 +270,62 @@ html, body {
   50% {
     transform: translateY(-4px);
   }
+}
+
+/* 1.5. Balão de Fala do Jogador (Viajante) Projetado em 3D */
+.player-speech-bubble {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform: translate(-50%, -100%);
+  max-width: 280px;
+  width: max-content;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid #d4cfc5;
+  border-radius: 14px;
+  padding: 10px 14px 12px 14px;
+  box-shadow: 0 8px 24px rgba(40, 36, 32, 0.14), 0 2px 6px rgba(0, 0, 0, 0.05);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  z-index: 22;
+  pointer-events: none;
+  transition: opacity 0.22s ease, transform 0.22s cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+
+.player-bubble-header {
+  margin-bottom: 4px;
+  padding-bottom: 3px;
+  border-bottom: 1px dashed rgba(180, 170, 160, 0.35);
+}
+
+.player-bubble-speaker {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: #3b5042;
+}
+
+.player-bubble-text {
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: #262320;
+  font-weight: 500;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+.player-bubble-arrow {
+  position: absolute;
+  bottom: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-top: 8px solid rgba(255, 255, 255, 0.95);
+  filter: drop-shadow(0 2px 2px rgba(40, 36, 32, 0.08));
 }
 
 /* 2. Balão de Fala Projetado em 3D sobre o NPC */
@@ -394,9 +508,344 @@ html, body {
   box-shadow: none;
 }
 
+/* ========================================================
+   MODAL DE ESTATÍSTICAS DE VISITANTES POR PAÍS (GLASSMORPHISM)
+   ======================================================== */
+
+.visitor-ui-hidden {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
+}
+
+.visitor-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(18, 24, 20, 0.45);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  transition: opacity 0.24s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.24s ease;
+}
+
+.visitor-modal-card {
+  width: 100%;
+  max-width: 440px;
+  max-height: 85vh;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(228, 231, 235, 0.9);
+  border-radius: 22px;
+  box-shadow: 
+    0 24px 48px -12px rgba(18, 24, 20, 0.28),
+    0 0 0 1px rgba(255, 255, 255, 0.7) inset;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transform: scale(1);
+  transition: transform 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: modalPopIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modalPopIn {
+  from {
+    opacity: 0;
+    transform: scale(0.92) translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.visitor-modal-header {
+  padding: 18px 20px;
+  border-bottom: 1px solid #f0f0f2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(250, 250, 250, 0.9));
+}
+
+.visitor-modal-title-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.visitor-modal-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #e7f5ec, #d1edd9);
+  color: #285437;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(40, 84, 55, 0.12);
+  flex-shrink: 0;
+}
+
+.visitor-modal-title-group h3 {
+  font-size: 16px;
+  font-weight: 700;
+  color: #18181b;
+  line-height: 1.2;
+}
+
+.visitor-modal-title-group p {
+  font-size: 12px;
+  color: #71717a;
+  margin-top: 2px;
+}
+
+.visitor-modal-title-group p span {
+  font-weight: 700;
+  color: #285437;
+}
+
+.visitor-modal-close {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid #e4e4e7;
+  background: rgba(244, 244, 245, 0.85);
+  color: #71717a;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.visitor-modal-close:hover {
+  background: #18181b;
+  color: #ffffff;
+  border-color: #18181b;
+  transform: rotate(90deg);
+}
+
+.visitor-modal-body {
+  padding: 16px 20px;
+  overflow-y: auto;
+  max-height: calc(85vh - 130px);
+}
+
+/* Custom Scrollbar */
+.visitor-modal-body::-webkit-scrollbar {
+  width: 6px;
+}
+.visitor-modal-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+.visitor-modal-body::-webkit-scrollbar-thumb {
+  background: #d4d4d8;
+  border-radius: 4px;
+}
+
+.visitor-countries-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Linha de Cada País */
+.country-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: #fbfbfa;
+  border: 1px solid #eeeee8;
+  border-radius: 14px;
+  transition: all 0.15s ease;
+}
+
+.country-row:hover {
+  background: #ffffff;
+  border-color: #d8deda;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+  transform: translateX(2px);
+}
+
+.country-row-active {
+  background: #f2f8f4 !important;
+  border-color: #cde4d4 !important;
+}
+
+.country-rank {
+  font-size: 11px;
+  font-weight: 700;
+  color: #a1a1aa;
+  min-width: 20px;
+  text-align: center;
+}
+
+.country-flag-box {
+  width: 28px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: #f4f4f5;
+  flex-shrink: 0;
+}
+
+.country-flag-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.country-flag-fallback {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.country-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.country-info-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 5px;
+}
+
+.country-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #27272a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.country-you-tag {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  background: #285437;
+  color: #ffffff;
+  padding: 1px 5px;
+  border-radius: 8px;
+}
+
+.country-count-label {
+  font-size: 12px;
+  color: #52525b;
+}
+
+.country-count-label strong {
+  font-weight: 700;
+  color: #18181b;
+}
+
+.country-count-label small {
+  color: #71717a;
+  font-size: 11px;
+}
+
+.country-progress-track {
+  width: 100%;
+  height: 6px;
+  background: #e4e4e7;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.country-progress-fill {
+  height: 100%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #3d7955, #559f73);
+  transition: width 0.4s ease;
+}
+
+/* Estado Vazio */
+.visitor-empty-state {
+  text-align: center;
+  padding: 30px 10px;
+  color: #71717a;
+}
+.visitor-empty-icon {
+  font-size: 32px;
+  display: block;
+  margin-bottom: 8px;
+}
+
+/* Rodapé do Modal */
+.visitor-modal-footer {
+  padding: 12px 20px;
+  background: #fafaf9;
+  border-top: 1px solid #f0f0f2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  color: #71717a;
+}
+
+.visitor-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 11px;
+}
+
+.visitor-tag-live {
+  background: #e7f5ec;
+  color: #245233;
+  border: 1px solid #c8ebd1;
+}
+
+.visitor-tag-demo {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
 @media (max-width: 600px) {
   #controlsHint {
     display: none; /* Deixa a tela limpa no celular */
+  }
+
+  .visitor-btn {
+    height: 30px;
+    padding: 0 10px;
+    font-size: 11px;
+  }
+
+  .visitor-modal-card {
+    max-height: 90vh;
+    border-radius: 18px;
+  }
+
+  .visitor-modal-header,
+  .visitor-modal-body,
+  .visitor-modal-footer {
+    padding-left: 14px;
+    padding-right: 14px;
   }
 
   #npcSpeechBubble {

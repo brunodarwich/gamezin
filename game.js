@@ -949,7 +949,7 @@
   // Configurações da API DeepSeek
   const DEEPSEEK_CONFIG = {
     apiKey: 'sk-3d51c1545e6748978fa84f9b9b9727fb',
-    model: 'deepseek-v4-flash',
+    model: 'deepseek-chat',
     endpoint: 'https://api.deepseek.com/chat/completions'
   };
 
@@ -1119,12 +1119,66 @@
     displaySpeechText(initialGreeting, 'Diálogo');
   }
 
+  // Projeção e Controle do Balão de Fala do Jogador (Viajante)
+  const tempPlayerVec = new THREE.Vector3();
+  let playerSpeechHideTimeout = null;
+
+  function showPlayerSpeech(text) {
+    const bubbleEl = document.getElementById('playerSpeechBubble');
+    const textEl = document.getElementById('playerSpeechText');
+    if (!bubbleEl || !textEl) return;
+
+    if (playerSpeechHideTimeout) {
+      clearTimeout(playerSpeechHideTimeout);
+      playerSpeechHideTimeout = null;
+    }
+
+    textEl.textContent = text;
+    bubbleEl.classList.remove('npc-ui-hidden');
+    updatePlayerSpeechUI();
+  }
+
+  function hidePlayerSpeech(delayMs = 0) {
+    if (playerSpeechHideTimeout) {
+      clearTimeout(playerSpeechHideTimeout);
+      playerSpeechHideTimeout = null;
+    }
+
+    if (delayMs > 0) {
+      playerSpeechHideTimeout = setTimeout(() => {
+        const bubbleEl = document.getElementById('playerSpeechBubble');
+        if (bubbleEl) bubbleEl.classList.add('npc-ui-hidden');
+      }, delayMs);
+    } else {
+      const bubbleEl = document.getElementById('playerSpeechBubble');
+      if (bubbleEl) bubbleEl.classList.add('npc-ui-hidden');
+    }
+  }
+
+  function updatePlayerSpeechUI() {
+    if (!playerGroup) return;
+    const bubbleEl = document.getElementById('playerSpeechBubble');
+    if (!bubbleEl || bubbleEl.classList.contains('npc-ui-hidden')) return;
+
+    tempPlayerVec.setFromMatrixPosition(playerGroup.matrixWorld);
+    tempPlayerVec.y += 2.25; // Acima da cabeça do jogador
+    tempPlayerVec.project(camera);
+
+    const screenX = (tempPlayerVec.x * 0.5 + 0.5) * window.innerWidth;
+    const screenY = (-(tempPlayerVec.y * 0.5) + 0.5) * window.innerHeight;
+
+    bubbleEl.style.left = `${screenX}px`;
+    bubbleEl.style.top = `${screenY}px`;
+  }
+
   // Encerramento da Conversa
   function endDialogue(farewellMessage = null) {
     if (!inDialogue) return;
     inDialogue = false;
     isAwaitingAI = false;
     targetZoom = Math.min(Math.max(userPrevZoom, MIN_ZOOM), MAX_ZOOM);
+
+    hidePlayerSpeech(0);
 
     const chatBar = document.getElementById('npcChatBar');
     if (chatBar) chatBar.classList.add('npc-ui-hidden');
@@ -1153,6 +1207,9 @@
 
     const text = inputEl ? inputEl.value.trim() : '';
     if (!text) return;
+
+    // Exibe a fala no balão sobre a cabeça do jogador
+    showPlayerSpeech(text);
 
     dialogueTurnCount++;
     if (turnCountEl) turnCountEl.textContent = String(dialogueTurnCount);
@@ -1194,7 +1251,7 @@ DIRETRIZES:
             { role: 'system', content: systemPrompt },
             ...dialogueHistory
           ],
-          max_tokens: 180,
+          max_tokens: 220,
           temperature: 0.7
         })
       });
@@ -1204,11 +1261,24 @@ DIRETRIZES:
       }
 
       const data = await response.json();
-      const reply = data.choices && data.choices[0] && data.choices[0].message
-        ? data.choices[0].message.content.trim()
-        : "O silêncio agora ensina mais do que qualquer palavra...";
+      let reply = "";
+      if (data.choices && data.choices[0] && data.choices[0].message) {
+        const msg = data.choices[0].message;
+        if (typeof msg.content === 'string' && msg.content.trim().length > 0) {
+          reply = msg.content.trim();
+        } else if (typeof msg.reasoning_content === 'string' && msg.reasoning_content.trim().length > 0) {
+          reply = msg.reasoning_content.trim();
+        }
+      }
+
+      if (!reply) {
+        reply = "O silêncio agora ensina mais do que qualquer palavra...";
+      }
 
       dialogueHistory.push({ role: 'assistant', content: reply });
+
+      // Oculta suavemente o balão do jogador após o mestre começar a responder
+      hidePlayerSpeech(4500);
 
       displaySpeechText(reply, isFinalTurn ? 'Encerramento' : 'Mestre', () => {
         if (isFinalTurn) {
@@ -1234,6 +1304,8 @@ DIRETRIZES:
       ];
       const fallback = fallbackQuotes[Math.floor(Math.random() * fallbackQuotes.length)];
       dialogueHistory.push({ role: 'assistant', content: fallback });
+
+      hidePlayerSpeech(4500);
 
       displaySpeechText(fallback, isFinalTurn ? 'Encerramento' : 'Reflexão', () => {
         if (isFinalTurn) {
@@ -1298,6 +1370,7 @@ DIRETRIZES:
   // Atualização Geral do NPC no Loop
   function updateNpc(delta) {
     updateNpcUI();
+    updatePlayerSpeechUI();
 
     const distToNpc = Math.hypot(
       playerGroup.position.x - npcPosition.x,
@@ -1337,6 +1410,17 @@ DIRETRIZES:
   document.getElementById('npcChatForm')?.addEventListener('submit', (e) => {
     e.preventDefault();
     handlePlayerSend();
+  });
+
+  // Digitação em tempo real no balão de fala do jogador
+  document.getElementById('npcChatInput')?.addEventListener('input', (e) => {
+    if (!inDialogue) return;
+    const val = e.target.value.trim();
+    if (val) {
+      showPlayerSpeech(val);
+    } else {
+      hidePlayerSpeech(0);
+    }
   });
   const velocity = new THREE.Vector3();
   const inputVector = new THREE.Vector2();
