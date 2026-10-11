@@ -45,6 +45,7 @@ O motor `game.js` detecta e carrega automaticamente os seguintes conjuntos de fr
 | **NPC Mestre Sábio** | `old-a.png` e `old-b.png` | Boca abre/fecha durante fala | `old-a.png` (padrão/repouso), `old-b.png` (falando com IA ou frases idle) |
 | **Vegetação (Gramas)** | `grama-a.png` a `grama-d.png` | Estático com sombra rente | 4 variantes de tufos assentados no chão; transponíveis |
 | **Obstáculos (Pedras)** | `pedra-a.png` a `pedra-c.png` | Estático com sombra rente | 3 variantes com colisão circular elástica e deslizamento suave |
+| **Árvores & Cenário** | `arvore-a.png` (1024x1024 px) | Estático com sombra de tronco | Árvore frondosa majestosa com colisão sólida no tronco, copa transponível em 2.5D e Z-sorting |
 
 > **Nota:** Para adicionar mais frames ou variantes de ambiente, basta incluir o arquivo no array correspondente em `game.js`:
 > ```javascript
@@ -55,7 +56,8 @@ O motor `game.js` detecta e carrega automaticamente os seguintes conjuntos de fr
 > };
 > const envAssets = {
 >   grass: ['grama-a.png', 'grama-b.png', 'grama-c.png', 'grama-d.png'],
->   rock: ['pedra-a.png', 'pedra-b.png', 'pedra-c.png']
+>   rock: ['pedra-a.png', 'pedra-b.png', 'pedra-c.png'],
+>   tree: ['arvore-a.png']
 > };
 > ```
 

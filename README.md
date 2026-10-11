@@ -280,7 +280,8 @@ gamezin/
 ├── grama-d.png             # Tufo de grama - variante D
 ├── pedra-a.png             # Rocha sólida - variante A
 ├── pedra-b.png             # Rocha sólida - variante B
-└── pedra-c.png             # Rocha sólida - variante C
+├── pedra-c.png             # Rocha sólida - variante C
+└── arvore-a.png            # Árvore frondosa (1024x1024) com copa 2.5D e tronco colidível
 ```
 
 ---

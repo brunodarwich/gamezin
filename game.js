@@ -344,12 +344,14 @@
   // 5.1 Elementos de Ambiente: Gramas e Pedras com Chunks Infinitos
   const envAssets = {
     grass: ['grama-a.png', 'grama-b.png', 'grama-c.png', 'grama-d.png'],
-    rock: ['pedra-a.png', 'pedra-b.png', 'pedra-c.png']
+    rock: ['pedra-a.png', 'pedra-b.png', 'pedra-c.png'],
+    tree: ['arvore-a.png']
   };
 
   const envMaterials = {
     grass: [],
-    rock: []
+    rock: [],
+    tree: []
   };
 
   for (const type in envAssets) {
@@ -459,8 +461,8 @@
       const rx = minX + (rand() * 0.88 + 0.06) * CHUNK_SIZE;
       const rz = minZ + (rand() * 0.88 + 0.06) * CHUNK_SIZE;
 
-      // Mantém a área inicial de spawn (0, 0) e a área do NPC (3.8, 2.2) livres de pedras
-      if (Math.hypot(rx, rz) < 3.2 || Math.hypot(rx - 3.8, rz - 2.2) < 2.5) {
+      // Mantém a área inicial de spawn (0, 0), o Mestre Sábio (3.8, 2.2) e a árvore marco (5.8, 1.0) livres de pedras
+      if (Math.hypot(rx, rz) < 3.2 || Math.hypot(rx - 3.8, rz - 2.2) < 2.5 || Math.hypot(rx - 5.8, rz - 1.0) < 2.5) {
         continue;
       }
 
@@ -496,6 +498,97 @@
       };
       chunkRocks.push(rockEntry);
       activeRockObstacles.push(rockEntry);
+    }
+
+    // 3. Árvores frondosas no chunk (1 a 3 árvores de 1024px com copa 2.5D e tronco colidível)
+    const numTrees = 1 + Math.floor(rand() * 3);
+    for (let i = 0; i < numTrees; i++) {
+      const tx = minX + (rand() * 0.82 + 0.09) * CHUNK_SIZE;
+      const tz = minZ + (rand() * 0.82 + 0.09) * CHUNK_SIZE;
+
+      // Mantém a área inicial de spawn (0, 0), o Mestre Sábio (3.8, 2.2) e a árvore marco (5.8, 1.0) desimpedidos
+      if (Math.hypot(tx, tz) < 3.8 || Math.hypot(tx - 3.8, tz - 2.2) < 2.8 || Math.hypot(tx - 5.8, tz - 1.0) < 3.0) {
+        continue;
+      }
+
+      // Evita sobreposição direta com rochas ou outras árvores do mesmo chunk
+      let overlapObstacle = false;
+      for (let j = 0; j < chunkRocks.length; j++) {
+        const obs = chunkRocks[j];
+        if (Math.hypot(tx - obs.x, tz - obs.z) < 2.6) {
+          overlapObstacle = true;
+          break;
+        }
+      }
+      if (overlapObstacle) continue;
+
+      const baseScale = 3.4 + rand() * 0.8; // Escala entre 3.4 e 4.2 unidades para arte de 1024px
+      const flipX = rand() < 0.5 ? 1 : -1;
+
+      const tItem = new THREE.Group();
+      tItem.position.set(tx, 0, tz);
+
+      // Sombra projetada sob a base do tronco e raízes
+      const shadow = new THREE.Mesh(propShadowGeo, propShadowMat);
+      shadow.rotation.x = -Math.PI / 2;
+      shadow.position.set(0, 0.007, -0.02);
+      shadow.scale.set(baseScale * 0.55, baseScale * 0.22, 1);
+      shadow.renderOrder = 1;
+      tItem.add(shadow);
+
+      // Sprite da árvore com contra-inclinação billboard
+      const mesh = new THREE.Mesh(propBaseGeo, envMaterials.tree[0]);
+      mesh.rotation.x = -0.36;
+      mesh.scale.set(baseScale * flipX, baseScale, 1);
+      mesh.renderOrder = BASE_SORT_ORDER + Math.round(tz * 100);
+      tItem.add(mesh);
+
+      chunkGroup.add(tItem);
+
+      const treeEntry = {
+        x: tx,
+        z: tz,
+        radius: baseScale * 0.13, // Colisão sólida no tronco (~0.45 a 0.55 unidades)
+        chunkKey: key,
+        isTree: true
+      };
+      chunkRocks.push(treeEntry);
+      activeRockObstacles.push(treeEntry);
+    }
+
+    // No chunk inicial (0, 0), inclui uma árvore marco contemplativa ao lado do Mestre Sábio
+    if (cx === 0 && cz === 0) {
+      const tx = 5.8;
+      const tz = 1.0;
+      const baseScale = 3.9;
+
+      const tItem = new THREE.Group();
+      tItem.position.set(tx, 0, tz);
+
+      const shadow = new THREE.Mesh(propShadowGeo, propShadowMat);
+      shadow.rotation.x = -Math.PI / 2;
+      shadow.position.set(0, 0.007, -0.02);
+      shadow.scale.set(baseScale * 0.55, baseScale * 0.22, 1);
+      shadow.renderOrder = 1;
+      tItem.add(shadow);
+
+      const mesh = new THREE.Mesh(propBaseGeo, envMaterials.tree[0]);
+      mesh.rotation.x = -0.36;
+      mesh.scale.set(baseScale, baseScale, 1);
+      mesh.renderOrder = BASE_SORT_ORDER + Math.round(tz * 100);
+      tItem.add(mesh);
+
+      chunkGroup.add(tItem);
+
+      const landmarkTree = {
+        x: tx,
+        z: tz,
+        radius: baseScale * 0.13,
+        chunkKey: key,
+        isTree: true
+      };
+      chunkRocks.push(landmarkTree);
+      activeRockObstacles.push(landmarkTree);
     }
 
     envGroup.add(chunkGroup);
