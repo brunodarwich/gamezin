@@ -11,6 +11,7 @@ No Three.js, os objetos são medidos em unidades de mundo 3D. O personagem possu
 | Tipo de Asset | Resolução do Arquivo (PNG) | Proporção / Pose | Unidades 3D (Mundo) | Inclinação Billboard |
 | :--- | :--- | :--- | :--- | :--- |
 | **Personagem Principal** | **`512 x 512 px`** (POT) | Em pé, corpo inteiro, pés rentes à base inferior | Altura: `2.0` / Largura: `2.0 * aspect` | `rotation.x = -0.36` |
+| **Mobs & Criaturas** | **`512 x 512 px`** (POT) | Arte apoiada no centro inferior do quadro | Escala: `1.9` (Pivô no centro inferior) | `rotation.x = -0.36` |
 | **Itens & Coletáveis** | **`256 x 256 px`** | Em pé ou repousado | Altura: `0.6` a `0.8` | `rotation.x = -0.36` |
 | **Arbustos & Vegetação** | **`512 x 256 px`** ou **`512 x 512 px`** | Base reta no chão | Altura: `0.8` a `1.4` | `rotation.x = -0.36` |
 | **Estruturas / Cenários** | **`512 x 512 px`** a **`1024 x 1024 px`** | Base no chão | Altura: `2.5` a `4.0` | `rotation.x = -0.36` |
@@ -22,8 +23,8 @@ No Three.js, os objetos são medidos em unidades de mundo 3D. O personagem possu
 1. **Pose Frontal ou 3/4:**
    - Desenhe o personagem **em pé** (não visto de cima como em top-down).
    - O jogo aplica espelhamento automático suave ou usa sprites dedicados para esquerda e direita.
-2. **Ponto de Apoio dos Pés (Ancoragem da Sombra):**
-   - Desenhe o personagem tocando quase a borda inferior da imagem (deixe apenas ~2 a 4px de respiro). Isso garante que os pés fiquem perfeitamente alinhados com o plano da sombra elíptica (`Y = 0.02`).
+2. **Ponto de Apoio dos Pés / Base Inferior (Ancoragem):**
+   - Desenhe o personagem ou criatura tocando quase a borda inferior da imagem (deixe apenas ~2 a 4px de respiro). No caso de criaturas/mobs, o ponto de fixação deve ser o **centro inferior** (`mobGeo.translate(0, height / 2, 0)`), alinhando o corpo perfeitamente com o solo tridimensional e a sombra elíptica.
 3. **Contorno Marcante (Estilo Paper Mario):**
    - Um contorno escuro sólido (e opcionalmente uma leve borda branca de adesivo recortado) acentua o efeito de folha de papel tridimensional.
 4. **Por que Potência de 2 (Power of Two - POT)?**
@@ -35,11 +36,12 @@ No Three.js, os objetos são medidos em unidades de mundo 3D. O personagem possu
 
 O motor `game.js` detecta e carrega automaticamente os seguintes conjuntos de frames:
 
-| Ação | Arquivos no Projeto | Cadência de Troca | Comportamento no Jogo |
+| Ação / Entidade | Arquivos no Projeto | Cadência de Troca | Comportamento no Jogo |
 | :--- | :--- | :--- | :--- |
 | **Parado (Idle)** | `player.png` e `player-b.png` | ~0.75s por frame | Respiração suave procedural no eixo Y |
 | **Correndo p/ Direita** | `player-run-right-a.png` e `player-run-right-b.png` | ~0.14s (~7 fps) | Balanço de passos com pulinho (`stepHop`) e poeira FX |
 | **Correndo p/ Esquerda** | `player-run-left-a.png` e `player-run-left-b.png` | ~0.14s (~7 fps) | Balanço de passos com pulinho (`stepHop`) e poeira FX |
+| **Mobs (Slimes)** | `mob-a-1.png` a `mob-a-4.png` | ~0.13s por frame | Ciclo ping-pong `1>2>3>4>3>2>1`, movimentação aleatória e colisão |
 | **Vegetação (Gramas)** | `grama-a.png` a `grama-d.png` | Estático com sombra rente | 4 variantes de tufos assentados no chão; transponíveis |
 | **Obstáculos (Pedras)** | `pedra-a.png` a `pedra-c.png` | Estático com sombra rente | 3 variantes com colisão circular elástica e deslizamento suave |
 

@@ -545,6 +545,187 @@
       updateChunks(cx, cz);
     }
   }
+
+  // 5.2 Mobs do Mapa (Lesminha / Slime)
+  const MOB_COUNT = 7;
+  const MOB_SIZE = 1.9;
+  const MOB_BASE_SPEED = 1.6;
+  const MOB_ANIM_INTERVAL = 0.13; // Ritmo fluido para contração e expansão
+  const MOB_CYCLE = [0, 1, 2, 3, 2, 1]; // 1 > 2 > 3 > 4 > 3 > 2 > 1...
+
+  const mobAssets = ['mob-a-1.png', 'mob-a-2.png', 'mob-a-3.png', 'mob-a-4.png'];
+  const mobTextures = [];
+
+  // Ponto de fixação no centro inferior da imagem (Y = 0 na base)
+  const mobGeo = new THREE.PlaneGeometry(MOB_SIZE, MOB_SIZE);
+  mobGeo.translate(0, MOB_SIZE / 2, 0);
+
+  const mobShadowGeo = new THREE.PlaneGeometry(1.3, 0.65);
+  const mobShadowMat = new THREE.MeshBasicMaterial({
+    map: createShadowTexture(),
+    transparent: true,
+    depthWrite: false,
+    opacity: 0.28
+  });
+
+  const mobsGroup = new THREE.Group();
+  scene.add(mobsGroup);
+  const mobsList = [];
+
+  mobAssets.forEach((path, idx) => {
+    textureLoader.load(path, (tex) => {
+      tex.generateMipmaps = true;
+      tex.minFilter = THREE.LinearMipmapLinearFilter;
+      tex.magFilter = THREE.LinearFilter;
+      mobTextures[idx] = tex;
+
+      // Atribui o primeiro frame aos mobs que ainda não possuírem mapa
+      mobsList.forEach(m => {
+        if (!m.mesh.material.map && idx === 0) {
+          m.mesh.material.map = tex;
+          m.mesh.material.needsUpdate = true;
+        }
+      });
+    });
+  });
+
+  // Distribui 7 mobs pelo mapa ao redor da área inicial
+  const initialSpawnAngles = [0.25, 1.15, 2.05, 3.10, 4.05, 4.95, 5.85];
+  const initialSpawnDistances = [6.5, 9.5, 7.2, 12.0, 8.8, 11.2, 14.5];
+
+  for (let i = 0; i < MOB_COUNT; i++) {
+    const angle = initialSpawnAngles[i] + (Math.random() - 0.5) * 0.35;
+    const dist = initialSpawnDistances[i] + (Math.random() - 0.5) * 1.8;
+    const startX = Math.cos(angle) * dist;
+    const startZ = Math.sin(angle) * dist;
+
+    const group = new THREE.Group();
+    group.position.set(startX, 0, startZ);
+
+    // Sombra elíptica suave no solo
+    const shadow = new THREE.Mesh(mobShadowGeo, mobShadowMat);
+    shadow.rotation.x = -Math.PI / 2;
+    shadow.position.set(0, 0.012, 0);
+    shadow.renderOrder = 1;
+    group.add(shadow);
+
+    // Cada mob possui seu material próprio para trocar texturas independentemente
+    const mat = new THREE.MeshBasicMaterial({
+      transparent: true,
+      alphaTest: 0.02,
+      side: THREE.DoubleSide,
+      depthWrite: false
+    });
+
+    const mesh = new THREE.Mesh(mobGeo, mat);
+    mesh.position.set(0, 0, 0);
+    mesh.rotation.x = -0.36; // Contra-inclinação billboard isométrica idêntica à do jogador
+    mesh.renderOrder = 2;
+    group.add(mesh);
+
+    mobsGroup.add(group);
+
+    const wanderRadius = 6.0;
+    const targetX = startX + (Math.random() * 2 - 1) * wanderRadius;
+    const targetZ = startZ + (Math.random() * 2 - 1) * wanderRadius;
+
+    mobsList.push({
+      group: group,
+      mesh: mesh,
+      shadow: shadow,
+      x: startX,
+      z: startZ,
+      targetX: targetX,
+      targetZ: targetZ,
+      speed: MOB_BASE_SPEED * (0.88 + Math.random() * 0.28),
+      state: 'walking',
+      idleTimer: 0,
+      animTimer: Math.random() * MOB_ANIM_INTERVAL, // Dessincroniza os passos entre eles
+      cycleStep: Math.floor(Math.random() * MOB_CYCLE.length),
+      facingRight: false
+    });
+  }
+
+  function updateMobs(delta) {
+    for (let i = 0; i < mobsList.length; i++) {
+      const mob = mobsList[i];
+
+      if (mob.state === 'walking') {
+        const dx = mob.targetX - mob.x;
+        const dz = mob.targetZ - mob.z;
+        const dist = Math.hypot(dx, dz);
+
+        if (dist > 0.16) {
+          const vx = (dx / dist) * mob.speed;
+          const vz = (dz / dist) * mob.speed;
+
+          let nextX = mob.x + vx * delta;
+          let nextZ = mob.z + vz * delta;
+
+          // Colisão e deslizamento elástico contra rochas
+          const mobRadius = 0.35;
+          for (let j = 0; j < activeRockObstacles.length; j++) {
+            const rock = activeRockObstacles[j];
+            const rdx = nextX - rock.x;
+            const rdz = nextZ - rock.z;
+            const minDist = mobRadius + rock.radius;
+            const distSq = rdx * rdx + rdz * rdz;
+
+            if (distSq < minDist * minDist) {
+              const rDist = Math.sqrt(distSq) || 0.001;
+              const overlap = minDist - rDist;
+              nextX += (rdx / rDist) * overlap;
+              nextZ += (rdz / rDist) * overlap;
+            }
+          }
+
+          mob.x = nextX;
+          mob.z = nextZ;
+          mob.group.position.x = nextX;
+          mob.group.position.z = nextZ;
+
+          // Orientação visual: arte original olha para a esquerda
+          if (vx > 0.1) {
+            mob.facingRight = true;
+          } else if (vx < -0.1) {
+            mob.facingRight = false;
+          }
+          mob.mesh.scale.x = mob.facingRight ? -1 : 1;
+
+          // Ciclo de Animação Ping-Pong: 1 > 2 > 3 > 4 > 3 > 2 > 1...
+          mob.animTimer += delta;
+          if (mob.animTimer >= MOB_ANIM_INTERVAL) {
+            mob.animTimer = 0;
+            mob.cycleStep = (mob.cycleStep + 1) % MOB_CYCLE.length;
+            const frameIdx = MOB_CYCLE[mob.cycleStep];
+            if (mobTextures[frameIdx] && mob.mesh.material.map !== mobTextures[frameIdx]) {
+              mob.mesh.material.map = mobTextures[frameIdx];
+              mob.mesh.material.needsUpdate = true;
+            }
+          }
+        } else {
+          // Chegou ao ponto alvo, pausa brevemente antes do próximo trajeto
+          mob.state = 'idle';
+          mob.idleTimer = 0.6 + Math.random() * 1.6;
+          // Retorna suavemente ao frame inicial esticado
+          if (mobTextures[0] && mob.mesh.material.map !== mobTextures[0]) {
+            mob.mesh.material.map = mobTextures[0];
+            mob.mesh.material.needsUpdate = true;
+          }
+        }
+      } else if (mob.state === 'idle') {
+        mob.idleTimer -= delta;
+        if (mob.idleTimer <= 0) {
+          // Sorteia novo destino aleatório próximo
+          const roamDist = 3.5 + Math.random() * 6.5;
+          const roamAngle = Math.random() * Math.PI * 2;
+          mob.targetX = mob.x + Math.cos(roamAngle) * roamDist;
+          mob.targetZ = mob.z + Math.sin(roamAngle) * roamDist;
+          mob.state = 'walking';
+        }
+      }
+    }
+  }
   const velocity = new THREE.Vector3();
   const inputVector = new THREE.Vector2();
   let targetPosition = null;
@@ -986,6 +1167,7 @@
 
     checkChunkUpdates();
     updatePlayer(delta);
+    updateMobs(delta);
     updateParticles(delta);
     updateCamera(delta);
 

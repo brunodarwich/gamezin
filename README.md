@@ -176,7 +176,33 @@ O cenário conta com geração procedural infinita baseada em grade de chunks (`
 
 ---
 
-## 📁 7. Estrutura de Arquivos
+## 🐛 7. Entidades e Mobs (Slimes / Criaturas)
+
+O mapa conta com a presença de criaturas autônomas que povoam o cenário com vida e dinamismo:
+
+### 🔄 Ciclo Ping-Pong (`mob-a-1.png` a `mob-a-4.png`)
+- **Sequência:** `1 > 2 > 3 > 4 > 3 > 2 > 1 > 2 > 3...`
+- **Índices de Animação:** `[0, 1, 2, 3, 2, 1]`, gerando contração orgânica seguida de distensão estilo lagarta/slime.
+- **Cadência:** `0.13s` por frame (~7.7 fps) com dessincronização de início entre as criaturas para evitar movimentos idênticos.
+
+### ⚓ Ponto de Fixação no Centro Inferior
+- Como os desenhos originais de 512x512 foram produzidos com o mob posicionado na base inferior da tela, a malha tridimensional aplica:
+  ```javascript
+  const mobGeo = new THREE.PlaneGeometry(MOB_SIZE, MOB_SIZE);
+  mobGeo.translate(0, MOB_SIZE / 2, 0); // O pivô (0, 0, 0) passa a ser a base inferior central
+  ```
+- Com a inclinação billboard de `-0.36 rad` (`-20.6°`), o monstrinho fica perfeitamente assentado no chão (`Y = 0`) em qualquer ângulo de visualização ou zoom, sem flutuação.
+
+### 🧭 Padrão de Movimentação Aleatória (Wandering AI)
+- **Patrulha Autônoma:** Cada criatura sorteia destinos em um raio de `3.5` a `10` unidades ao redor de seu local atual.
+- **Pausas Naturais:** Ao alcançar o destino, o mob entra em estado de repouso (`idle`) por `0.6s` a `2.2s`, retornando ao frame de repouso esticado (`mob-a-1.png`).
+- **Inversão de Sentido:** Quando caminha para a direita ($V_x > 0$), a malha inverte horizontalmente (`scale.x = -1`), visto que a arte original foi ilustrada olhando para a esquerda.
+- **Colisão com Cenário:** Sistema de colisão com amortecimento tangencial contra as rochas ativas (`activeRockObstacles`), evitando que atravessem elementos sólidos.
+- **Sombra Dedicada:** Sombra elíptica projetada suavemente sob a base de cada criatura.
+
+---
+
+## 📁 8. Estrutura de Arquivos
 
 ```
 gamezin/
@@ -194,6 +220,11 @@ gamezin/
 ├── player-run-left-a.png   # Frame 1 de corrida para a esquerda
 ├── player-run-left-b.png   # Frame 2 de corrida para a esquerda
 │
+├── mob-a-1.png             # Frame 1 da criatura (esticado/repouso)
+├── mob-a-2.png             # Frame 2 da criatura (início da contração)
+├── mob-a-3.png             # Frame 3 da criatura (contração intermediária)
+├── mob-a-4.png             # Frame 4 da criatura (contração máxima vertical)
+│
 ├── grama-a.png             # Tufo de grama - variante A
 ├── grama-b.png             # Tufo de grama - variante B
 ├── grama-c.png             # Tufo de grama - variante C
@@ -205,7 +236,7 @@ gamezin/
 
 ---
 
-## 🚀 8. Como Executar e Testar
+## 🚀 9. Como Executar e Testar
 
 Como o projeto é construído em JavaScript puro e Three.js local, basta servi-lo por qualquer servidor estático HTTP:
 
