@@ -342,8 +342,8 @@
 
   // 5.1 Elementos de Ambiente: Gramas e Pedras com Chunks Infinitos
   const envAssets = {
-    grass: ['grama-a.png', 'grama-b.png'],
-    rock: ['pedra-a.png', 'pedra-b.png']
+    grass: ['grama-a.png', 'grama-b.png', 'grama-c.png', 'grama-d.png'],
+    rock: ['pedra-a.png', 'pedra-b.png', 'pedra-c.png']
   };
 
   const envMaterials = {
@@ -380,7 +380,7 @@
     map: createShadowTexture(),
     transparent: true,
     depthWrite: false,
-    opacity: 0.38
+    opacity: 0.22 // Sombra discreta e suave de contato direto com o chão
   });
 
   // Funções de PRNG Determinístico para Chunks Procedurais
@@ -405,7 +405,6 @@
   const CHUNK_RADIUS = 2; // Grade 5x5 cobrindo 120x120 unidades de mundo
   const loadedChunks = new Map();
   const activeRockObstacles = [];
-  const activeGrassProps = [];
   const envGroup = new THREE.Group();
   scene.add(envGroup);
 
@@ -421,30 +420,29 @@
     const minZ = cz * CHUNK_SIZE;
 
     const chunkRocks = [];
-    const chunkGrass = [];
 
-    // 1. Gramas no chunk (3 a 6 tufos com variações)
+    // 1. Gramas no chunk (3 a 6 tufos estáticos e assentados no chão)
     const numGrass = 3 + Math.floor(rand() * 4);
     for (let i = 0; i < numGrass; i++) {
       const gx = minX + (rand() * 0.9 + 0.05) * CHUNK_SIZE;
       const gz = minZ + (rand() * 0.9 + 0.05) * CHUNK_SIZE;
 
-      const variant = rand() < 0.5 ? 0 : 1;
+      const variant = Math.floor(rand() * 4); // Variantes A, B, C, D
       const baseScale = 0.72 + rand() * 0.35;
       const flipX = rand() < 0.5 ? 1 : -1;
 
       const gItem = new THREE.Group();
       gItem.position.set(gx, 0, gz);
 
-      // Sombra leve da grama
+      // Sombra sutil de contato rente à base do chão
       const shadow = new THREE.Mesh(propShadowGeo, propShadowMat);
       shadow.rotation.x = -Math.PI / 2;
-      shadow.position.set(0, 0.01, 0.02);
-      shadow.scale.set(baseScale * 0.75, baseScale * 0.45, 1);
+      shadow.position.set(0, 0.006, -0.015);
+      shadow.scale.set(baseScale * 0.45, baseScale * 0.18, 1);
       shadow.renderOrder = 1;
       gItem.add(shadow);
 
-      // Sprite da grama com inclinação billboard
+      // Sprite estático da grama (sem balanço flutuante)
       const mesh = new THREE.Mesh(propBaseGeo, envMaterials.grass[variant]);
       mesh.rotation.x = -0.36;
       mesh.scale.set(baseScale * flipX, baseScale, 1);
@@ -452,20 +450,9 @@
       gItem.add(mesh);
 
       chunkGroup.add(gItem);
-
-      const grassEntry = {
-        mesh: mesh,
-        x: gx,
-        z: gz,
-        phase: rand() * Math.PI * 2,
-        speed: 1.8 + rand() * 0.9,
-        chunkKey: key
-      };
-      chunkGrass.push(grassEntry);
-      activeGrassProps.push(grassEntry);
     }
 
-    // 2. Pedras no chunk (1 a 3 pedras sólidas com sombra)
+    // 2. Pedras no chunk (1 a 3 pedras sólidas com sombra rente e 3 variantes)
     const numRocks = 1 + Math.floor(rand() * 3);
     for (let i = 0; i < numRocks; i++) {
       const rx = minX + (rand() * 0.88 + 0.06) * CHUNK_SIZE;
@@ -476,22 +463,22 @@
         continue;
       }
 
-      const variant = rand() < 0.5 ? 0 : 1;
+      const variant = Math.floor(rand() * 3); // Variantes A, B, C
       const baseScale = 0.75 + rand() * 0.42;
       const flipX = rand() < 0.5 ? 1 : -1;
 
       const rItem = new THREE.Group();
       rItem.position.set(rx, 0, rz);
 
-      // Sombra projetada da pedra
+      // Sombra discreta de contato rente à base da rocha
       const shadow = new THREE.Mesh(propShadowGeo, propShadowMat);
       shadow.rotation.x = -Math.PI / 2;
-      shadow.position.set(0, 0.012, 0.05);
-      shadow.scale.set(baseScale * 1.05, baseScale * 0.6, 1);
+      shadow.position.set(0, 0.008, -0.015);
+      shadow.scale.set(baseScale * 0.65, baseScale * 0.28, 1);
       shadow.renderOrder = 1;
       rItem.add(shadow);
 
-      // Sprite da pedra com contra-inclinação billboard
+      // Sprite estático da pedra com contra-inclinação billboard
       const mesh = new THREE.Mesh(propBaseGeo, envMaterials.rock[variant]);
       mesh.rotation.x = -0.36;
       mesh.scale.set(baseScale * flipX, baseScale, 1);
@@ -513,8 +500,7 @@
     envGroup.add(chunkGroup);
     loadedChunks.set(key, {
       group: chunkGroup,
-      rocks: chunkRocks,
-      grass: chunkGrass
+      rocks: chunkRocks
     });
   }
 
@@ -544,11 +530,6 @@
             activeRockObstacles.splice(i, 1);
           }
         }
-        for (let i = activeGrassProps.length - 1; i >= 0; i--) {
-          if (activeGrassProps[i].chunkKey === key) {
-            activeGrassProps.splice(i, 1);
-          }
-        }
 
         loadedChunks.delete(key);
       }
@@ -562,28 +543,6 @@
       lastChunkX = cx;
       lastChunkZ = cz;
       updateChunks(cx, cz);
-    }
-  }
-
-  // Animação Procedural da Grama (Vento e Reação ao Jogador)
-  function updateGrassSway(time, playerX, playerZ) {
-    for (let i = 0; i < activeGrassProps.length; i++) {
-      const g = activeGrassProps[i];
-      let sway = Math.sin(time * g.speed + g.phase) * 0.06;
-
-      const dx = playerX - g.x;
-      const dz = playerZ - g.z;
-      const distSq = dx * dx + dz * dz;
-
-      // Efeito de toque quando o jogador passa perto (< 1.2 unidades)
-      if (distSq < 1.44) {
-        const dist = Math.sqrt(distSq);
-        const intensity = 1.0 - (dist / 1.2);
-        const pushSign = dx < 0 ? 1 : -1;
-        sway += (pushSign * intensity * 0.22) + Math.sin(time * 14 + g.phase) * intensity * 0.08;
-      }
-
-      g.mesh.rotation.z = sway;
     }
   }
   const velocity = new THREE.Vector3();
@@ -1024,11 +983,9 @@
 
   function renderLoop() {
     const delta = Math.min(clock.getDelta(), 0.1);
-    const elapsedTime = clock.getElapsedTime();
 
     checkChunkUpdates();
     updatePlayer(delta);
-    updateGrassSway(elapsedTime, playerGroup.position.x, playerGroup.position.z);
     updateParticles(delta);
     updateCamera(delta);
 

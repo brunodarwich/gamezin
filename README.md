@@ -162,14 +162,15 @@ playerMesh.position.y = BASE_Y + Math.sin(idleClock) * 0.025;
 
 O cenário conta com geração procedural infinita baseada em grade de chunks (`24x24` unidades de mundo) com semente determinística (PRNG Mulberry32), garantindo que os mesmos elementos apareçam sempre nas mesmas coordenadas:
 
-### 🌾 Gramas (`grama-a.png`, `grama-b.png`)
-- **Visual:** Tufos orgânicos com inclinação billboard `rotation.x = -0.36` e sombra leve no chão.
-- **Balanço ao Vento:** Animação contínua senoidal no eixo Z (`rotation.z`) com frequências e fases individuais por tufo.
-- **Reação ao Jogador:** Ao passar a menos de `1.2` unidades de distância, as hastes de grama se inclinam na direção oposta ao passo do personagem e vibram rapidamente.
-- **Física:** Totalmente transponíveis (sem colisão física).
+### 🌾 Gramas (`grama-a.png`, `grama-b.png`, `grama-c.png`, `grama-d.png`)
+- **Visual:** Tufos orgânicos em 4 variantes com inclinação billboard `rotation.x = -0.36`.
+- **Ancoragem Firme no Solo:** Elementos 100% estáticos fixados na base, sem oscilações artificiais ou efeito flutuante.
+- **Sombra Discreta de Contato:** Sombra elíptica sutil (`opacity: 0.22`) rente à raiz da planta no chão.
+- **Física:** Totalmente transponíveis pelo personagem.
 
-### 🪨 Pedras e Rochas (`pedra-a.png`, `pedra-b.png`)
-- **Visual:** Rochas sólidas com variações de escala, espelhamento horizontal e sombra projetada em elipse (`Y = 0.012`).
+### 🪨 Pedras e Rochas (`pedra-a.png`, `pedra-b.png`, `pedra-c.png`)
+- **Visual:** Rochas sólidas em 3 variantes com variações de escala e espelhamento horizontal.
+- **Sombra Rente de Contato:** Sombra compacta projetada diretamente sob a base de contato (`opacity: 0.22`), conferindo peso visual no plano 3D.
 - **Colisão Elástica & Sliding:** Sistema de colisão circular com desvio tangencial (`sliding collision`), impedindo que o jogador atravesse a rocha e permitindo contorná-la suavemente com teclado, toque ou joystick.
 - **Área Segura:** Raio de `3.2` unidades ao redor de `(0, 0)` mantido 100% livre de rochas para garantir o nascimento seguro do jogador.
 
@@ -195,8 +196,11 @@ gamezin/
 │
 ├── grama-a.png             # Tufo de grama - variante A
 ├── grama-b.png             # Tufo de grama - variante B
-├── pedra-a.png             # Rocha / pedra sólida - variante A
-└── pedra-b.png             # Rocha / pedra sólida - variante B
+├── grama-c.png             # Tufo de grama - variante C
+├── grama-d.png             # Tufo de grama - variante D
+├── pedra-a.png             # Rocha sólida - variante A
+├── pedra-b.png             # Rocha sólida - variante B
+└── pedra-c.png             # Rocha sólida - variante C
 ```
 
 ---

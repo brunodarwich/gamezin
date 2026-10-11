@@ -40,8 +40,8 @@ O motor `game.js` detecta e carrega automaticamente os seguintes conjuntos de fr
 | **Parado (Idle)** | `player.png` e `player-b.png` | ~0.75s por frame | Respiração suave procedural no eixo Y |
 | **Correndo p/ Direita** | `player-run-right-a.png` e `player-run-right-b.png` | ~0.14s (~7 fps) | Balanço de passos com pulinho (`stepHop`) e poeira FX |
 | **Correndo p/ Esquerda** | `player-run-left-a.png` e `player-run-left-b.png` | ~0.14s (~7 fps) | Balanço de passos com pulinho (`stepHop`) e poeira FX |
-| **Vegetação (Gramas)** | `grama-a.png` e `grama-b.png` | Procedural (vento & toque) | Balanço suave no eixo Z; oscilação ágil ao toque do player |
-| **Obstáculos (Pedras)** | `pedra-a.png` e `pedra-b.png` | Estático com sombra | Colisão circular elástica com deslizamento suave |
+| **Vegetação (Gramas)** | `grama-a.png` a `grama-d.png` | Estático com sombra rente | 4 variantes de tufos assentados no chão; transponíveis |
+| **Obstáculos (Pedras)** | `pedra-a.png` a `pedra-c.png` | Estático com sombra rente | 3 variantes com colisão circular elástica e deslizamento suave |
 
 > **Nota:** Para adicionar mais frames ou variantes de ambiente, basta incluir o arquivo no array correspondente em `game.js`:
 > ```javascript
@@ -51,8 +51,8 @@ O motor `game.js` detecta e carrega automaticamente os seguintes conjuntos de fr
 >   run_left: ['player-run-left-a.png', 'player-run-left-b.png']
 > };
 > const envAssets = {
->   grass: ['grama-a.png', 'grama-b.png'],
->   rock: ['pedra-a.png', 'pedra-b.png']
+>   grass: ['grama-a.png', 'grama-b.png', 'grama-c.png', 'grama-d.png'],
+>   rock: ['pedra-a.png', 'pedra-b.png', 'pedra-c.png']
 > };
 > ```
 
