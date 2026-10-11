@@ -364,13 +364,23 @@
       });
       envMaterials[type][idx] = mat;
 
-      textureLoader.load(path, (tex) => {
-        tex.generateMipmaps = true;
-        tex.minFilter = THREE.LinearMipmapLinearFilter;
-        tex.magFilter = THREE.LinearFilter;
-        mat.map = tex;
-        mat.needsUpdate = true;
-      });
+      textureLoader.load(
+        path,
+        (tex) => {
+          tex.generateMipmaps = true;
+          tex.minFilter = THREE.LinearMipmapLinearFilter;
+          tex.magFilter = THREE.LinearFilter;
+          mat.map = tex;
+          mat.needsUpdate = true;
+          if (type === 'tree') {
+            console.log('🌲 Textura da árvore (arvore-a.png 1024px) carregada com sucesso!');
+          }
+        },
+        undefined,
+        (err) => {
+          console.error('❌ Falha ao carregar textura de ambiente:', path, err);
+        }
+      );
     });
   }
 
@@ -506,8 +516,8 @@
       const tx = minX + (rand() * 0.82 + 0.09) * CHUNK_SIZE;
       const tz = minZ + (rand() * 0.82 + 0.09) * CHUNK_SIZE;
 
-      // Mantém a área inicial de spawn (0, 0), o Mestre Sábio (3.8, 2.2) e a árvore marco (5.8, 1.0) desimpedidos
-      if (Math.hypot(tx, tz) < 3.8 || Math.hypot(tx - 3.8, tz - 2.2) < 2.8 || Math.hypot(tx - 5.8, tz - 1.0) < 3.0) {
+      // Mantém a área inicial de spawn (0, 0) e a clareira central desimpedidas
+      if (Math.hypot(tx, tz) < 4.2 || Math.hypot(tx - 3.8, tz - 2.2) < 2.8) {
         continue;
       }
 
@@ -556,39 +566,44 @@
       activeRockObstacles.push(treeEntry);
     }
 
-    // No chunk inicial (0, 0), inclui uma árvore marco contemplativa ao lado do Mestre Sábio
+    // No chunk inicial (0, 0), inclui a clareira com árvores imponentes visíveis imediatamente na tela inicial
     if (cx === 0 && cz === 0) {
-      const tx = 5.8;
-      const tz = 1.0;
-      const baseScale = 3.9;
+      const startingTrees = [
+        { x: -2.4, z: -2.8, scale: 3.8, flip: 1 },  // Noroeste (canto superior esquerdo da tela)
+        { x: 2.2, z: -2.8, scale: 3.6, flip: -1 },  // Nordeste (canto superior direito da tela)
+        { x: 4.8, z: 1.4, scale: 4.2, flip: 1 },   // Ao lado do Mestre Sábio (sombra zen)
+        { x: -2.8, z: 1.8, scale: 3.7, flip: -1 }   // Oeste (lateral esquerda da tela)
+      ];
 
-      const tItem = new THREE.Group();
-      tItem.position.set(tx, 0, tz);
+      startingTrees.forEach((t) => {
+        const tItem = new THREE.Group();
+        tItem.position.set(t.x, 0, t.z);
 
-      const shadow = new THREE.Mesh(propShadowGeo, propShadowMat);
-      shadow.rotation.x = -Math.PI / 2;
-      shadow.position.set(0, 0.007, -0.02);
-      shadow.scale.set(baseScale * 0.55, baseScale * 0.22, 1);
-      shadow.renderOrder = 1;
-      tItem.add(shadow);
+        const shadow = new THREE.Mesh(propShadowGeo, propShadowMat);
+        shadow.rotation.x = -Math.PI / 2;
+        shadow.position.set(0, 0.007, -0.02);
+        shadow.scale.set(t.scale * 0.55, t.scale * 0.22, 1);
+        shadow.renderOrder = 1;
+        tItem.add(shadow);
 
-      const mesh = new THREE.Mesh(propBaseGeo, envMaterials.tree[0]);
-      mesh.rotation.x = -0.36;
-      mesh.scale.set(baseScale, baseScale, 1);
-      mesh.renderOrder = BASE_SORT_ORDER + Math.round(tz * 100);
-      tItem.add(mesh);
+        const mesh = new THREE.Mesh(propBaseGeo, envMaterials.tree[0]);
+        mesh.rotation.x = -0.36;
+        mesh.scale.set(t.scale * t.flip, t.scale, 1);
+        mesh.renderOrder = BASE_SORT_ORDER + Math.round(t.z * 100);
+        tItem.add(mesh);
 
-      chunkGroup.add(tItem);
+        chunkGroup.add(tItem);
 
-      const landmarkTree = {
-        x: tx,
-        z: tz,
-        radius: baseScale * 0.13,
-        chunkKey: key,
-        isTree: true
-      };
-      chunkRocks.push(landmarkTree);
-      activeRockObstacles.push(landmarkTree);
+        const treeObs = {
+          x: t.x,
+          z: t.z,
+          radius: t.scale * 0.13,
+          chunkKey: key,
+          isTree: true
+        };
+        chunkRocks.push(treeObs);
+        activeRockObstacles.push(treeObs);
+      });
     }
 
     envGroup.add(chunkGroup);
