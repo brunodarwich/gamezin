@@ -459,8 +459,8 @@
       const rx = minX + (rand() * 0.88 + 0.06) * CHUNK_SIZE;
       const rz = minZ + (rand() * 0.88 + 0.06) * CHUNK_SIZE;
 
-      // Mantém a área inicial de spawn (0, 0) e a área do NPC (10, 10) livres de pedras
-      if (Math.hypot(rx, rz) < 3.2 || Math.hypot(rx - 10, rz - 10) < 3.0) {
+      // Mantém a área inicial de spawn (0, 0) e a área do NPC (3.8, 2.2) livres de pedras
+      if (Math.hypot(rx, rz) < 3.2 || Math.hypot(rx - 3.8, rz - 2.2) < 2.5) {
         continue;
       }
 
@@ -780,17 +780,17 @@
   }
 
   // 5.3 NPC Mestre Sábio (Filosofia e Ensinamentos do Canal Corvo Seco)
-  const npcPosition = new THREE.Vector3(10.0, 0, 10.0);
+  const npcPosition = new THREE.Vector3(3.8, 0, 2.2);
   const npcRadius = 0.55;
-  const NPC_HEIGHT = 2.45;
-  const NPC_WIDTH = 2.45;
+  const NPC_HEIGHT = 3.1;
+  const NPC_WIDTH = 3.1;
 
   const npcGroup = new THREE.Group();
   npcGroup.position.copy(npcPosition);
   scene.add(npcGroup);
 
   // Sombra projetada do NPC no solo
-  const npcShadowGeo = new THREE.PlaneGeometry(1.8, 0.95);
+  const npcShadowGeo = new THREE.PlaneGeometry(2.0, 1.1);
   const npcShadowMesh = new THREE.Mesh(npcShadowGeo, propShadowMat);
   npcShadowMesh.rotation.x = -Math.PI / 2;
   npcShadowMesh.position.set(0, 0.012, 0);
@@ -1147,9 +1147,9 @@ DIRETRIZES:
   function updateNpcUI() {
     if (!npcGroup) return;
 
-    // Projeta ponto acima da cabeça do NPC (Y ~ 2.45)
+    // Projeta ponto acima da cabeça do NPC (Y ~ 2.85)
     tempNpcVec.setFromMatrixPosition(npcGroup.matrixWorld);
-    tempNpcVec.y += 2.45;
+    tempNpcVec.y += 2.85;
     tempNpcVec.project(camera);
 
     const isBehind = tempNpcVec.z > 1;
