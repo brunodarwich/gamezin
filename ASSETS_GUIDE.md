@@ -1,48 +1,68 @@
-## 1. Resolução e Tamanho Recomendado para Desenho Digital
+# 🎨 Guia de Assets e Sprites — Gamezin (Three.js 2.5D)
 
-Para o estilo **Paper Mario (2.5D com perspectiva)**:
+Este guia define as especificações e boas práticas para criação, desenho e exportação de sprites 2D para uso no motor 2.5D Three.js do **Gamezin**.
 
-| Asset | Tamanho em Tela | Resolução de Desenho no Canvas | Proporção / Pose | Formato |
+---
+
+## 1. Resolução e Proporções Recomendadas
+
+No Three.js, os objetos são medidos em unidades de mundo 3D. O personagem possui altura padrão de **`2.0 unidades`** (`PLAYER_HEIGHT = 2.0`), e a largura é calculada automaticamente mantendo o *aspect ratio* natural da imagem:
+
+| Tipo de Asset | Resolução do Arquivo (PNG) | Proporção / Pose | Unidades 3D (Mundo) | Inclinação Billboard |
 | :--- | :--- | :--- | :--- | :--- |
-| **Personagem Principal (Player)** | `64 x 84 px` (em pé) | **`256 x 340 px`** ou **`512 x 680 px`** | Personagem **em pé de frente ou 3/4 virado para a direita**, apoiado pela base dos pés | PNG Transparente |
-| **Itens / Coletáveis** | `32 x 32 px` | **`128 x 128 px`** ou **`256 x 256 px`** | Em pé ou apoiados no chão | PNG Transparente |
-| **Cenários / Objetos** | Variável | **`256 x 256 px`** a **`512 x 512 px`** | Base no chão (para projetar sombra) | PNG Transparente |
-
-### Dicas de Desenho Estilo Paper Mario:
-1. **Pose do Personagem:** Desenhe o personagem **em pé** (não de cima como no Top-Down clássico). Olhando levemente para a direita ou em pose 3/4. O jogo faz o espelhamento automático suave (efeito folha virando) quando ele anda para a esquerda.
-2. **Borda/Contorno:** Um contorno escuro marcante (e opcionalmente uma leve borda branca de recorte/adesivo) deixa o efeito "Paper" idêntico aos jogos da Nintendo.
-3. **Ponto de Apoio:** Desenhe o personagem tocando quase a base inferior do quadro para que a sombra no chão fique perfeitamente alinhada com os pés.
+| **Personagem Principal** | **`512 x 512 px`** (POT) | Em pé, corpo inteiro, pés rentes à base inferior | Altura: `2.0` / Largura: `2.0 * aspect` | `rotation.x = -0.36` |
+| **Itens & Coletáveis** | **`256 x 256 px`** | Em pé ou repousado | Altura: `0.6` a `0.8` | `rotation.x = -0.36` |
+| **Arbustos & Vegetação** | **`512 x 256 px`** ou **`512 x 512 px`** | Base reta no chão | Altura: `0.8` a `1.4` | `rotation.x = -0.36` |
+| **Estruturas / Cenários** | **`512 x 512 px`** a **`1024 x 1024 px`** | Base no chão | Altura: `2.5` a `4.0` | `rotation.x = -0.36` |
 
 ---
 
-### Por que `256 x 256 px` ou `512 x 512 px` (e não 500x500)?
-1. **Potência de 2 (Power of Two - POT):**
-   - Placas de vídeo (GPUs) de computadores e smartphones (Android/iOS) processam texturas de potências de 2 (`64, 128, 256, 512, 1024, 2048`) de forma muito mais otimizada na memória VRAM e sem artefatos de amostragem.
-2. **Nitidez Retina / Telas Mobile (2x a 3x DPI):**
-   - No jogo, o personagem é desenhado na tela com cerca de `64px` ou `80px`.
-   - Se você desenhar em `256 x 256 px` (4x a escala da tela), a GPU aplica o anti-aliasing automático ao reduzir para a tela. O traço fica perfeitamente nítido tanto em monitores 1080p/4K quanto em celulares com telas AMOLED de alta densidade (300~450 ppi), sem ficar borrado nem pixelado.
-3. **500x500 vs 512x512:**
-   - 500x500 funcionará, mas **512x512** é a convenção técnica padrão da indústria de jogos 2D. Se desenhar em 512x512 px, apenas deixe uma margem interna de segurança (padding) de ~10% para o traço não colar nas bordas.
+## 2. Dicas de Arte e Estilo Visual
+
+1. **Pose Frontal ou 3/4:**
+   - Desenhe o personagem **em pé** (não visto de cima como em top-down).
+   - O jogo aplica espelhamento automático suave ou usa sprites dedicados para esquerda e direita.
+2. **Ponto de Apoio dos Pés (Ancoragem da Sombra):**
+   - Desenhe o personagem tocando quase a borda inferior da imagem (deixe apenas ~2 a 4px de respiro). Isso garante que os pés fiquem perfeitamente alinhados com o plano da sombra elíptica (`Y = 0.02`).
+3. **Contorno Marcante (Estilo Paper Mario):**
+   - Um contorno escuro sólido (e opcionalmente uma leve borda branca de adesivo recortado) acentua o efeito de folha de papel tridimensional.
+4. **Por que Potência de 2 (Power of Two - POT)?**
+   - Texturas `256x256`, `512x512` e `1024x1024` são otimizadas nativamente pelas GPUs (computadores e smartphones), permitindo filtragem mipmap suave (`LinearMipmapLinearFilter`) sem borrões ou perda de definição em telas Retina / alta densidade.
 
 ---
 
-## 2. Como Usar Animação em Frames no Protótipo
+## 3. Conjuntos de Animação e Nomenclatura de Arquivos
 
-O jogo agora organiza e detecta automaticamente os conjuntos de sprites:
+O motor `game.js` detecta e carrega automaticamente os seguintes conjuntos de frames:
 
-| Ação | Nomes dos Arquivos (Frames) | Comportamento |
-| :--- | :--- | :--- |
-| **Parado (Idle)** | `player.png` e `player-b.png` | Respiração suave (~0.75s por frame) |
-| **Correndo p/ Direita** | `player-run-right-a.png` e `player-run-right-b.png` | Ciclo dinâmico de corrida (~7 fps) |
-| **Correndo p/ Esquerda** | `player-run-left-a.png` e `player-run-left-b.png` | Ciclo dinâmico de corrida (~7 fps) |
+| Ação | Arquivos no Projeto | Cadência de Troca | Comportamento no Jogo |
+| :--- | :--- | :--- | :--- |
+| **Parado (Idle)** | `player.png` e `player-b.png` | ~0.75s por frame | Respiração suave procedural no eixo Y |
+| **Correndo p/ Direita** | `player-run-right-a.png` e `player-run-right-b.png` | ~0.14s (~7 fps) | Balanço de passos com pulinho (`stepHop`) e poeira FX |
+| **Correndo p/ Esquerda** | `player-run-left-a.png` e `player-run-left-b.png` | ~0.14s (~7 fps) | Balanço de passos com pulinho (`stepHop`) e poeira FX |
 
-*Todos os frames utilizam a proporção original de 512x512 px sem nenhuma distorção.*
+> **Nota:** Para adicionar mais frames a qualquer ação, basta incluir o arquivo no array correspondente em `game.js`:
+> ```javascript
+> const spriteAssets = {
+>   idle: ['player.png', 'player-b.png'],
+>   run_right: ['player-run-right-a.png', 'player-run-right-b.png', 'player-run-right-c.png'],
+>   run_left: ['player-run-left-a.png', 'player-run-left-b.png', 'player-run-left-c.png']
+> };
+> ```
 
 ---
 
-## 3. Como Rodar e Testar
+## 4. Como os Sprites São Renderizados no Three.js
 
-O servidor de desenvolvimento local já está ativo:
-- Abra no seu navegador: **`http://localhost:8080`**
-- No mesmo Wi-Fi, você pode abrir no seu celular Android digitando o seu IP local (ex: `http://192.168.x.x:8080`).
-- No Android, você pode clicar em **"Adicionar à tela inicial"** no Chrome para testar em modo aplicativo (tela cheia).
+- **Geometria:** `THREE.PlaneGeometry(largura, altura)`
+- **Material:**
+  ```javascript
+  const mat = new THREE.MeshBasicMaterial({
+    map: textura,
+    transparent: true,
+    alphaTest: 0.02,
+    side: THREE.DoubleSide,
+    depthWrite: false
+  });
+  ```
+- **Inclinação Obrigatória:** `mesh.rotation.x = -0.36;` para compensar o ângulo da câmera de ~38°.
