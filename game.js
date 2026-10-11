@@ -782,24 +782,24 @@
   // 5.3 NPC Mestre Sábio (Filosofia e Ensinamentos do Canal Corvo Seco)
   const npcPosition = new THREE.Vector3(3.8, 0, 2.2);
   const npcRadius = 0.55;
-  const NPC_HEIGHT = 3.1;
-  const NPC_WIDTH = 3.1;
+  const NPC_HEIGHT = PLAYER_HEIGHT; // 2.0 (idêntico ao player)
+  const NPC_WIDTH = 2.0;            // 2.0 (mesma proporção de 512x512)
+  const NPC_BASE_Y = NPC_HEIGHT / 2; // 1.0
 
   const npcGroup = new THREE.Group();
   npcGroup.position.copy(npcPosition);
   scene.add(npcGroup);
 
-  // Sombra projetada do NPC no solo
-  const npcShadowGeo = new THREE.PlaneGeometry(2.0, 1.1);
+  // Sombra projetada do NPC no solo (mesma escala da sombra do player)
+  const npcShadowGeo = new THREE.PlaneGeometry(1.6, 0.9);
   const npcShadowMesh = new THREE.Mesh(npcShadowGeo, propShadowMat);
   npcShadowMesh.rotation.x = -Math.PI / 2;
   npcShadowMesh.position.set(0, 0.012, 0);
   npcShadowMesh.renderOrder = 1;
   npcGroup.add(npcShadowMesh);
 
-  // Mesh do NPC com rotação de contra-balanço isométrica (-20.6°)
+  // Mesh do NPC com geometria centrada, pivô e contra-inclinação idênticos aos do jogador
   const npcGeo = new THREE.PlaneGeometry(NPC_WIDTH, NPC_HEIGHT);
-  npcGeo.translate(0, NPC_HEIGHT / 2, 0); // Ancoragem na base dos pés (Y = 0)
 
   const npcMat = new THREE.MeshBasicMaterial({
     transparent: true,
@@ -809,8 +809,8 @@
   });
 
   const npcMesh = new THREE.Mesh(npcGeo, npcMat);
-  npcMesh.position.set(0, 0, 0);
-  npcMesh.rotation.x = -0.36;
+  npcMesh.position.set(0, NPC_BASE_Y, 0);
+  npcMesh.rotation.x = -0.36; // Contra-inclinação billboard isométrica idêntica à do jogador (-20.6°)
   npcMesh.renderOrder = BASE_SORT_ORDER + Math.round(npcPosition.z * 100);
   npcGroup.add(npcMesh);
 
@@ -1147,9 +1147,9 @@ DIRETRIZES:
   function updateNpcUI() {
     if (!npcGroup) return;
 
-    // Projeta ponto acima da cabeça do NPC (Y ~ 2.85)
+    // Projeta ponto acima da cabeça do NPC (Y ~ 2.15)
     tempNpcVec.setFromMatrixPosition(npcGroup.matrixWorld);
-    tempNpcVec.y += 2.85;
+    tempNpcVec.y += 2.15;
     tempNpcVec.project(camera);
 
     const isBehind = tempNpcVec.z > 1;
