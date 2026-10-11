@@ -10,6 +10,7 @@
   const DUST_TRIGGER_TIME = 0.9;
   const DUST_SPAWN_INTERVAL = 0.12;
   const MAX_FX_PARTICLES = 60;
+  const BASE_SORT_ORDER = 10000; // Base para ordenação de profundidade 2.5D (Z-sorting)
 
   // Variáveis de Enquadramento da Câmera
   let camOffsetY = 7.5;
@@ -446,7 +447,7 @@
       const mesh = new THREE.Mesh(propBaseGeo, envMaterials.grass[variant]);
       mesh.rotation.x = -0.36;
       mesh.scale.set(baseScale * flipX, baseScale, 1);
-      mesh.renderOrder = 2;
+      mesh.renderOrder = BASE_SORT_ORDER + Math.round(gz * 100);
       gItem.add(mesh);
 
       chunkGroup.add(gItem);
@@ -482,7 +483,7 @@
       const mesh = new THREE.Mesh(propBaseGeo, envMaterials.rock[variant]);
       mesh.rotation.x = -0.36;
       mesh.scale.set(baseScale * flipX, baseScale, 1);
-      mesh.renderOrder = 2;
+      mesh.renderOrder = BASE_SORT_ORDER + Math.round(rz * 100);
       rItem.add(mesh);
 
       chunkGroup.add(rItem);
@@ -549,8 +550,8 @@
   // 5.2 Mobs do Mapa (Lesminha / Slime)
   const MOB_COUNT = 7;
   const MOB_SIZE = 1.9;
-  const MOB_BASE_SPEED = 1.6;
-  const MOB_ANIM_INTERVAL = 0.13; // Ritmo fluido para contração e expansão
+  const MOB_BASE_SPEED = 0.53; // 3x mais devagar (anterior: 1.6 / 3)
+  const MOB_ANIM_INTERVAL = 0.32; // Cadência orgânica e pausada condizente com o rastejo lento
   const MOB_CYCLE = [0, 1, 2, 3, 2, 1]; // 1 > 2 > 3 > 4 > 3 > 2 > 1...
 
   const mobAssets = ['mob-a-1.png', 'mob-a-2.png', 'mob-a-3.png', 'mob-a-4.png'];
@@ -620,7 +621,7 @@
     const mesh = new THREE.Mesh(mobGeo, mat);
     mesh.position.set(0, 0, 0);
     mesh.rotation.x = -0.36; // Contra-inclinação billboard isométrica idêntica à do jogador
-    mesh.renderOrder = 2;
+    mesh.renderOrder = BASE_SORT_ORDER + Math.round(startZ * 100);
     group.add(mesh);
 
     mobsGroup.add(group);
@@ -647,8 +648,15 @@
   }
 
   function updateMobs(delta) {
+    const mobRadius = 0.38;
+    const playerRadius = 0.38;
+
     for (let i = 0; i < mobsList.length; i++) {
       const mob = mobsList[i];
+
+      // Ordenação dinâmica de profundidade 2.5D (Z-sorting)
+      // Quando Z do mob for maior que Z do jogador (mais à frente), renderOrder será maior e sobrepõe o player
+      mob.mesh.renderOrder = BASE_SORT_ORDER + Math.round(mob.z * 100);
 
       if (mob.state === 'walking') {
         const dx = mob.targetX - mob.x;
@@ -662,8 +670,7 @@
           let nextX = mob.x + vx * delta;
           let nextZ = mob.z + vz * delta;
 
-          // Colisão e deslizamento elástico contra rochas
-          const mobRadius = 0.35;
+          // 1. Colisão e deslizamento elástico contra rochas
           for (let j = 0; j < activeRockObstacles.length; j++) {
             const rock = activeRockObstacles[j];
             const rdx = nextX - rock.x;
@@ -679,15 +686,45 @@
             }
           }
 
+          // 2. Colisão física contra o jogador (impede que o mob ocupe o espaço do jogador)
+          const dxP = nextX - playerGroup.position.x;
+          const dzP = nextZ - playerGroup.position.z;
+          const minDistP = mobRadius + playerRadius;
+          const distSqP = dxP * dxP + dzP * dzP;
+
+          if (distSqP < minDistP * minDistP) {
+            const distP = Math.sqrt(distSqP) || 0.001;
+            const overlapP = minDistP - distP;
+            nextX += (dxP / distP) * overlapP;
+            nextZ += (dzP / distP) * overlapP;
+          }
+
+          // 3. Colisão física entre os próprios mobs (impede que se sobreponham)
+          for (let k = 0; k < mobsList.length; k++) {
+            if (k === i) continue;
+            const other = mobsList[k];
+            const mdx = nextX - other.x;
+            const mdz = nextZ - other.z;
+            const mMinDist = mobRadius * 1.8;
+            const mDistSq = mdx * mdx + mdz * mdz;
+            if (mDistSq < mMinDist * mMinDist) {
+              const mDist = Math.sqrt(mDistSq) || 0.001;
+              const mOverlap = mMinDist - mDist;
+              nextX += (mdx / mDist) * mOverlap;
+              nextZ += (mdz / mDist) * mOverlap;
+            }
+          }
+
           mob.x = nextX;
           mob.z = nextZ;
           mob.group.position.x = nextX;
           mob.group.position.z = nextZ;
+          mob.mesh.renderOrder = BASE_SORT_ORDER + Math.round(nextZ * 100);
 
           // Orientação visual: arte original olha para a esquerda
-          if (vx > 0.1) {
+          if (vx > 0.05) {
             mob.facingRight = true;
-          } else if (vx < -0.1) {
+          } else if (vx < -0.05) {
             mob.facingRight = false;
           }
           mob.mesh.scale.x = mob.facingRight ? -1 : 1;
@@ -706,7 +743,7 @@
         } else {
           // Chegou ao ponto alvo, pausa brevemente antes do próximo trajeto
           mob.state = 'idle';
-          mob.idleTimer = 0.6 + Math.random() * 1.6;
+          mob.idleTimer = 0.8 + Math.random() * 2.2;
           // Retorna suavemente ao frame inicial esticado
           if (mobTextures[0] && mob.mesh.material.map !== mobTextures[0]) {
             mob.mesh.material.map = mobTextures[0];
@@ -974,7 +1011,7 @@
       let nextX = playerGroup.position.x + velocity.x * delta;
       let nextZ = playerGroup.position.z + velocity.z * delta;
 
-      // Colisão elástica e deslizamento suave com pedras ativas
+      // 1. Colisão elástica e deslizamento suave com pedras ativas
       const playerRadius = 0.38;
       for (let i = 0; i < activeRockObstacles.length; i++) {
         const rock = activeRockObstacles[i];
@@ -994,6 +1031,34 @@
           nextZ += nz * overlap;
 
           // Desliza a velocidade ao longo da tangente da rocha
+          const dot = velocity.x * nx + velocity.z * nz;
+          if (dot < 0) {
+            velocity.x -= dot * nx;
+            velocity.z -= dot * nz;
+          }
+        }
+      }
+
+      // 2. Colisão elástica e deslizamento suave com mobs (impede ocupar o mesmo espaço)
+      const mobRadius = 0.38;
+      for (let i = 0; i < mobsList.length; i++) {
+        const mob = mobsList[i];
+        const dx = nextX - mob.x;
+        const dz = nextZ - mob.z;
+        const minDist = playerRadius + mobRadius;
+        const distSq = dx * dx + dz * dz;
+
+        if (distSq < minDist * minDist) {
+          const dist = Math.sqrt(distSq) || 0.001;
+          const overlap = minDist - dist;
+          const nx = dx / dist;
+          const nz = dz / dist;
+
+          // Afasta o jogador para fora do corpo do mob
+          nextX += nx * overlap;
+          nextZ += nz * overlap;
+
+          // Desliza a velocidade tangencialmente ao contorno do mob
           const dot = velocity.x * nx + velocity.z * nz;
           if (dot < 0) {
             velocity.x -= dot * nx;
@@ -1048,6 +1113,9 @@
 
     // Animação de Passos, Pulinho e Sombra
     if (playerMesh) {
+      // Ordenação dinâmica de profundidade 2.5D (Z-sorting):
+      // Quando Z do player for maior que Z do mob (mais à frente), renderOrder será maior e sobrepõe o mob
+      playerMesh.renderOrder = BASE_SORT_ORDER + Math.round(playerGroup.position.z * 100);
       const activeAnimFrames = spriteTextures[animState] || [];
       const isDedicatedDir = (animState === 'run_left' || animState === 'run_right');
       const scaleX = isDedicatedDir ? 1 : (facingRight ? 1 : -1);

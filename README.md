@@ -183,7 +183,7 @@ O mapa conta com a presença de criaturas autônomas que povoam o cenário com v
 ### 🔄 Ciclo Ping-Pong (`mob-a-1.png` a `mob-a-4.png`)
 - **Sequência:** `1 > 2 > 3 > 4 > 3 > 2 > 1 > 2 > 3...`
 - **Índices de Animação:** `[0, 1, 2, 3, 2, 1]`, gerando contração orgânica seguida de distensão estilo lagarta/slime.
-- **Cadência:** `0.13s` por frame (~7.7 fps) com dessincronização de início entre as criaturas para evitar movimentos idênticos.
+- **Cadência Suave:** `0.32s` por frame (~3.1 fps), proporcional à nova velocidade lenta de rastejo para manter perfeita harmonia mecânica e visual.
 
 ### ⚓ Ponto de Fixação no Centro Inferior
 - Como os desenhos originais de 512x512 foram produzidos com o mob posicionado na base inferior da tela, a malha tridimensional aplica:
@@ -193,12 +193,29 @@ O mapa conta com a presença de criaturas autônomas que povoam o cenário com v
   ```
 - Com a inclinação billboard de `-0.36 rad` (`-20.6°`), o monstrinho fica perfeitamente assentado no chão (`Y = 0`) em qualquer ângulo de visualização ou zoom, sem flutuação.
 
-### 🧭 Padrão de Movimentação Aleatória (Wandering AI)
+### 🧭 Movimentação Lenta e IA Aleatória (Wandering AI)
+- **Velocidade Reduzida 3x:** Velocidade base de `0.53` unidades/s (3x mais devagar), transmitindo a sensação tátil de um rastejo orgânico e calmo.
 - **Patrulha Autônoma:** Cada criatura sorteia destinos em um raio de `3.5` a `10` unidades ao redor de seu local atual.
-- **Pausas Naturais:** Ao alcançar o destino, o mob entra em estado de repouso (`idle`) por `0.6s` a `2.2s`, retornando ao frame de repouso esticado (`mob-a-1.png`).
+- **Pausas Naturais:** Ao alcançar o destino, o mob entra em estado de repouso (`idle`) por `0.8s` a `2.2s`, retornando ao frame de repouso esticado (`mob-a-1.png`).
 - **Inversão de Sentido:** Quando caminha para a direita ($V_x > 0$), a malha inverte horizontalmente (`scale.x = -1`), visto que a arte original foi ilustrada olhando para a esquerda.
-- **Colisão com Cenário:** Sistema de colisão com amortecimento tangencial contra as rochas ativas (`activeRockObstacles`), evitando que atravessem elementos sólidos.
-- **Sombra Dedicada:** Sombra elíptica projetada suavemente sob a base de cada criatura.
+- **Sombra Dedicada:** Sombra elíptica projetada suavemente sob a base de cada criatura (`renderOrder = 1`).
+
+### 🧱 Colisão Mútua Sólida (Player $\leftrightarrow$ Mob)
+- **Não Ocupação de Espaço Comum:** O jogador e as criaturas não podem ocupar o mesmo espaço tridimensional ($D_{\min} = 0.76$).
+- **Desvio Elástico Bidirecional:**
+  - Se o jogador caminha contra o mob, o player é contido e desliza tangencialmente pelo contorno do corpo da criatura.
+  - Se o mob rasteja em direção ao player, o mob desvia e contorna o jogador.
+  - Mobs também detectam colisão mútua entre si e contra rochas do cenário (`activeRockObstacles`).
+
+### 📐 Ordenação de Profundidade 2.5D Dinâmica (Z-Sorting)
+- Para que o mundo 2.5D respeite a oclusão visual de forma natural:
+  ```javascript
+  playerMesh.renderOrder = BASE_SORT_ORDER + Math.round(playerGroup.position.z * 100);
+  mob.mesh.renderOrder = BASE_SORT_ORDER + Math.round(mob.z * 100);
+  ```
+  - **Mob à Frente:** Quando o mob está posicionado mais ao sul/frente do jogador ($Z_{\text{mob}} > Z_{\text{player}}$), o mob recebe `renderOrder` superior e é desenhado **sobrepondo o jogador**.
+  - **Mob Atrás:** Quando o jogador se posiciona à frente do mob ($Z_{\text{player}} > Z_{\text{mob}}$), o jogador recebe `renderOrder` superior e é desenhado **sobrepondo o mob**.
+  - Esse mesmo critério se estende para pedras e gramas do cenário.
 
 ---
 
