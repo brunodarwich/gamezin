@@ -156,6 +156,25 @@ playerMesh.position.y = BASE_Y + Math.sin(idleClock) * 0.025;
 
 ---
 
+---
+
+## 🌿 6. Elementos de Ambiente e Chunks Infinitos
+
+O cenário conta com geração procedural infinita baseada em grade de chunks (`24x24` unidades de mundo) com semente determinística (PRNG Mulberry32), garantindo que os mesmos elementos apareçam sempre nas mesmas coordenadas:
+
+### 🌾 Gramas (`grama-a.png`, `grama-b.png`)
+- **Visual:** Tufos orgânicos com inclinação billboard `rotation.x = -0.36` e sombra leve no chão.
+- **Balanço ao Vento:** Animação contínua senoidal no eixo Z (`rotation.z`) com frequências e fases individuais por tufo.
+- **Reação ao Jogador:** Ao passar a menos de `1.2` unidades de distância, as hastes de grama se inclinam na direção oposta ao passo do personagem e vibram rapidamente.
+- **Física:** Totalmente transponíveis (sem colisão física).
+
+### 🪨 Pedras e Rochas (`pedra-a.png`, `pedra-b.png`)
+- **Visual:** Rochas sólidas com variações de escala, espelhamento horizontal e sombra projetada em elipse (`Y = 0.012`).
+- **Colisão Elástica & Sliding:** Sistema de colisão circular com desvio tangencial (`sliding collision`), impedindo que o jogador atravesse a rocha e permitindo contorná-la suavemente com teclado, toque ou joystick.
+- **Área Segura:** Raio de `3.2` unidades ao redor de `(0, 0)` mantido 100% livre de rochas para garantir o nascimento seguro do jogador.
+
+---
+
 ## 📁 7. Estrutura de Arquivos
 
 ```
@@ -172,7 +191,12 @@ gamezin/
 ├── player-run-right-a.png  # Frame 1 de corrida para a direita
 ├── player-run-right-b.png  # Frame 2 de corrida para a direita
 ├── player-run-left-a.png   # Frame 1 de corrida para a esquerda
-└── player-run-left-b.png   # Frame 2 de corrida para a esquerda
+├── player-run-left-b.png   # Frame 2 de corrida para a esquerda
+│
+├── grama-a.png             # Tufo de grama - variante A
+├── grama-b.png             # Tufo de grama - variante B
+├── pedra-a.png             # Rocha / pedra sólida - variante A
+└── pedra-b.png             # Rocha / pedra sólida - variante B
 ```
 
 ---

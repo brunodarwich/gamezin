@@ -40,13 +40,19 @@ O motor `game.js` detecta e carrega automaticamente os seguintes conjuntos de fr
 | **Parado (Idle)** | `player.png` e `player-b.png` | ~0.75s por frame | Respiração suave procedural no eixo Y |
 | **Correndo p/ Direita** | `player-run-right-a.png` e `player-run-right-b.png` | ~0.14s (~7 fps) | Balanço de passos com pulinho (`stepHop`) e poeira FX |
 | **Correndo p/ Esquerda** | `player-run-left-a.png` e `player-run-left-b.png` | ~0.14s (~7 fps) | Balanço de passos com pulinho (`stepHop`) e poeira FX |
+| **Vegetação (Gramas)** | `grama-a.png` e `grama-b.png` | Procedural (vento & toque) | Balanço suave no eixo Z; oscilação ágil ao toque do player |
+| **Obstáculos (Pedras)** | `pedra-a.png` e `pedra-b.png` | Estático com sombra | Colisão circular elástica com deslizamento suave |
 
-> **Nota:** Para adicionar mais frames a qualquer ação, basta incluir o arquivo no array correspondente em `game.js`:
+> **Nota:** Para adicionar mais frames ou variantes de ambiente, basta incluir o arquivo no array correspondente em `game.js`:
 > ```javascript
 > const spriteAssets = {
 >   idle: ['player.png', 'player-b.png'],
->   run_right: ['player-run-right-a.png', 'player-run-right-b.png', 'player-run-right-c.png'],
->   run_left: ['player-run-left-a.png', 'player-run-left-b.png', 'player-run-left-c.png']
+>   run_right: ['player-run-right-a.png', 'player-run-right-b.png'],
+>   run_left: ['player-run-left-a.png', 'player-run-left-b.png']
+> };
+> const envAssets = {
+>   grass: ['grama-a.png', 'grama-b.png'],
+>   rock: ['pedra-a.png', 'pedra-b.png']
 > };
 > ```
 

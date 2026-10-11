@@ -196,6 +196,7 @@
   const shadowMesh = new THREE.Mesh(shadowGeo, shadowMat);
   shadowMesh.rotation.x = -Math.PI / 2;
   shadowMesh.position.y = 0.02;
+  shadowMesh.renderOrder = 1;
   playerGroup.add(shadowMesh);
 
   // Sprite Billboard do Jogador
@@ -210,6 +211,7 @@
   playerMesh = new THREE.Mesh(playerGeo, playerMat);
   playerMesh.position.y = BASE_Y;
   playerMesh.rotation.x = -0.36; // Inclinação de contra-balanço exata (-20.6°)
+  playerMesh.renderOrder = 2;
   playerGroup.add(playerMesh);
 
   // Marcador de Destino no Chão
@@ -223,6 +225,7 @@
   const clickMarkerMesh = new THREE.Mesh(markerGeo, markerMat);
   clickMarkerMesh.rotation.x = -Math.PI / 2;
   clickMarkerMesh.position.y = 0.03;
+  clickMarkerMesh.renderOrder = 3;
   scene.add(clickMarkerMesh);
 
   // Sistema de Partículas (FX)
@@ -337,7 +340,252 @@
     });
   }
 
-  // 6. Estado de Movimentação, Física e Câmera
+  // 5.1 Elementos de Ambiente: Gramas e Pedras com Chunks Infinitos
+  const envAssets = {
+    grass: ['grama-a.png', 'grama-b.png'],
+    rock: ['pedra-a.png', 'pedra-b.png']
+  };
+
+  const envMaterials = {
+    grass: [],
+    rock: []
+  };
+
+  for (const type in envAssets) {
+    envAssets[type].forEach((path, idx) => {
+      const mat = new THREE.MeshBasicMaterial({
+        transparent: true,
+        alphaTest: 0.02,
+        side: THREE.DoubleSide,
+        depthWrite: false
+      });
+      envMaterials[type][idx] = mat;
+
+      textureLoader.load(path, (tex) => {
+        tex.generateMipmaps = true;
+        tex.minFilter = THREE.LinearMipmapLinearFilter;
+        tex.magFilter = THREE.LinearFilter;
+        mat.map = tex;
+        mat.needsUpdate = true;
+      });
+    });
+  }
+
+  // Geometria e Sombra Compartilhadas dos Props de Cenário
+  const propBaseGeo = new THREE.PlaneGeometry(1, 1);
+  propBaseGeo.translate(0, 0.5, 0); // Ancoragem na base inferior (Y = 0)
+
+  const propShadowGeo = new THREE.PlaneGeometry(1, 1);
+  const propShadowMat = new THREE.MeshBasicMaterial({
+    map: createShadowTexture(),
+    transparent: true,
+    depthWrite: false,
+    opacity: 0.38
+  });
+
+  // Funções de PRNG Determinístico para Chunks Procedurais
+  function createSeededRandom(seed) {
+    let s = (seed ^ 0x6D2B79F5) >>> 0;
+    return function() {
+      s = (s + 0x9E3779B9) >>> 0;
+      let t = s;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function getChunkSeed(cx, cz) {
+    let h = (cx * 73856093) ^ (cz * 19349663);
+    return (h ^ 0x85ebca6b) >>> 0;
+  }
+
+  // Gerenciador de Chunks de Cenário
+  const CHUNK_SIZE = 24;
+  const CHUNK_RADIUS = 2; // Grade 5x5 cobrindo 120x120 unidades de mundo
+  const loadedChunks = new Map();
+  const activeRockObstacles = [];
+  const activeGrassProps = [];
+  const envGroup = new THREE.Group();
+  scene.add(envGroup);
+
+  let lastChunkX = null;
+  let lastChunkZ = null;
+
+  function spawnChunk(cx, cz, key) {
+    const chunkGroup = new THREE.Group();
+    const seed = getChunkSeed(cx, cz);
+    const rand = createSeededRandom(seed);
+
+    const minX = cx * CHUNK_SIZE;
+    const minZ = cz * CHUNK_SIZE;
+
+    const chunkRocks = [];
+    const chunkGrass = [];
+
+    // 1. Gramas no chunk (3 a 6 tufos com variações)
+    const numGrass = 3 + Math.floor(rand() * 4);
+    for (let i = 0; i < numGrass; i++) {
+      const gx = minX + (rand() * 0.9 + 0.05) * CHUNK_SIZE;
+      const gz = minZ + (rand() * 0.9 + 0.05) * CHUNK_SIZE;
+
+      const variant = rand() < 0.5 ? 0 : 1;
+      const baseScale = 0.72 + rand() * 0.35;
+      const flipX = rand() < 0.5 ? 1 : -1;
+
+      const gItem = new THREE.Group();
+      gItem.position.set(gx, 0, gz);
+
+      // Sombra leve da grama
+      const shadow = new THREE.Mesh(propShadowGeo, propShadowMat);
+      shadow.rotation.x = -Math.PI / 2;
+      shadow.position.set(0, 0.01, 0.02);
+      shadow.scale.set(baseScale * 0.75, baseScale * 0.45, 1);
+      shadow.renderOrder = 1;
+      gItem.add(shadow);
+
+      // Sprite da grama com inclinação billboard
+      const mesh = new THREE.Mesh(propBaseGeo, envMaterials.grass[variant]);
+      mesh.rotation.x = -0.36;
+      mesh.scale.set(baseScale * flipX, baseScale, 1);
+      mesh.renderOrder = 2;
+      gItem.add(mesh);
+
+      chunkGroup.add(gItem);
+
+      const grassEntry = {
+        mesh: mesh,
+        x: gx,
+        z: gz,
+        phase: rand() * Math.PI * 2,
+        speed: 1.8 + rand() * 0.9,
+        chunkKey: key
+      };
+      chunkGrass.push(grassEntry);
+      activeGrassProps.push(grassEntry);
+    }
+
+    // 2. Pedras no chunk (1 a 3 pedras sólidas com sombra)
+    const numRocks = 1 + Math.floor(rand() * 3);
+    for (let i = 0; i < numRocks; i++) {
+      const rx = minX + (rand() * 0.88 + 0.06) * CHUNK_SIZE;
+      const rz = minZ + (rand() * 0.88 + 0.06) * CHUNK_SIZE;
+
+      // Mantém a área inicial de spawn (0, 0) livre de pedras
+      if (Math.hypot(rx, rz) < 3.2) {
+        continue;
+      }
+
+      const variant = rand() < 0.5 ? 0 : 1;
+      const baseScale = 0.75 + rand() * 0.42;
+      const flipX = rand() < 0.5 ? 1 : -1;
+
+      const rItem = new THREE.Group();
+      rItem.position.set(rx, 0, rz);
+
+      // Sombra projetada da pedra
+      const shadow = new THREE.Mesh(propShadowGeo, propShadowMat);
+      shadow.rotation.x = -Math.PI / 2;
+      shadow.position.set(0, 0.012, 0.05);
+      shadow.scale.set(baseScale * 1.05, baseScale * 0.6, 1);
+      shadow.renderOrder = 1;
+      rItem.add(shadow);
+
+      // Sprite da pedra com contra-inclinação billboard
+      const mesh = new THREE.Mesh(propBaseGeo, envMaterials.rock[variant]);
+      mesh.rotation.x = -0.36;
+      mesh.scale.set(baseScale * flipX, baseScale, 1);
+      mesh.renderOrder = 2;
+      rItem.add(mesh);
+
+      chunkGroup.add(rItem);
+
+      const rockEntry = {
+        x: rx,
+        z: rz,
+        radius: baseScale * 0.42,
+        chunkKey: key
+      };
+      chunkRocks.push(rockEntry);
+      activeRockObstacles.push(rockEntry);
+    }
+
+    envGroup.add(chunkGroup);
+    loadedChunks.set(key, {
+      group: chunkGroup,
+      rocks: chunkRocks,
+      grass: chunkGrass
+    });
+  }
+
+  function updateChunks(centerCx, centerCz) {
+    const neededKeys = new Set();
+
+    for (let dx = -CHUNK_RADIUS; dx <= CHUNK_RADIUS; dx++) {
+      for (let dz = -CHUNK_RADIUS; dz <= CHUNK_RADIUS; dz++) {
+        const cx = centerCx + dx;
+        const cz = centerCz + dz;
+        const key = `${cx},${cz}`;
+        neededKeys.add(key);
+
+        if (!loadedChunks.has(key)) {
+          spawnChunk(cx, cz, key);
+        }
+      }
+    }
+
+    // Descarrega chunks que saíram do raio visível
+    for (const [key, chunkData] of loadedChunks.entries()) {
+      if (!neededKeys.has(key)) {
+        envGroup.remove(chunkData.group);
+
+        for (let i = activeRockObstacles.length - 1; i >= 0; i--) {
+          if (activeRockObstacles[i].chunkKey === key) {
+            activeRockObstacles.splice(i, 1);
+          }
+        }
+        for (let i = activeGrassProps.length - 1; i >= 0; i--) {
+          if (activeGrassProps[i].chunkKey === key) {
+            activeGrassProps.splice(i, 1);
+          }
+        }
+
+        loadedChunks.delete(key);
+      }
+    }
+  }
+
+  function checkChunkUpdates() {
+    const cx = Math.floor(playerGroup.position.x / CHUNK_SIZE);
+    const cz = Math.floor(playerGroup.position.z / CHUNK_SIZE);
+    if (cx !== lastChunkX || cz !== lastChunkZ) {
+      lastChunkX = cx;
+      lastChunkZ = cz;
+      updateChunks(cx, cz);
+    }
+  }
+
+  // Animação Procedural da Grama (Vento e Reação ao Jogador)
+  function updateGrassSway(time, playerX, playerZ) {
+    for (let i = 0; i < activeGrassProps.length; i++) {
+      const g = activeGrassProps[i];
+      let sway = Math.sin(time * g.speed + g.phase) * 0.06;
+
+      const dx = playerX - g.x;
+      const dz = playerZ - g.z;
+      const distSq = dx * dx + dz * dz;
+
+      // Efeito de toque quando o jogador passa perto (< 1.2 unidades)
+      if (distSq < 1.44) {
+        const dist = Math.sqrt(distSq);
+        const intensity = 1.0 - (dist / 1.2);
+        const pushSign = dx < 0 ? 1 : -1;
+        sway += (pushSign * intensity * 0.22) + Math.sin(time * 14 + g.phase) * intensity * 0.08;
+      }
+
+      g.mesh.rotation.z = sway;
+    }
+  }
   const velocity = new THREE.Vector3();
   const inputVector = new THREE.Vector2();
   let targetPosition = null;
@@ -581,10 +829,50 @@
       isMoving = false;
     }
 
-    // Atualiza posição do jogador
+    // Atualiza posição do jogador com colisão e deslizamento elástico em pedras
     if (isMoving) {
-      playerGroup.position.x += velocity.x * delta;
-      playerGroup.position.z += velocity.z * delta;
+      let nextX = playerGroup.position.x + velocity.x * delta;
+      let nextZ = playerGroup.position.z + velocity.z * delta;
+
+      // Colisão elástica e deslizamento suave com pedras ativas
+      const playerRadius = 0.38;
+      for (let i = 0; i < activeRockObstacles.length; i++) {
+        const rock = activeRockObstacles[i];
+        const dx = nextX - rock.x;
+        const dz = nextZ - rock.z;
+        const minDist = playerRadius + rock.radius;
+        const distSq = dx * dx + dz * dz;
+
+        if (distSq < minDist * minDist) {
+          const dist = Math.sqrt(distSq) || 0.001;
+          const overlap = minDist - dist;
+          const nx = dx / dist;
+          const nz = dz / dist;
+
+          // Afasta o jogador para fora do raio da rocha
+          nextX += nx * overlap;
+          nextZ += nz * overlap;
+
+          // Desliza a velocidade ao longo da tangente da rocha
+          const dot = velocity.x * nx + velocity.z * nz;
+          if (dot < 0) {
+            velocity.x -= dot * nx;
+            velocity.z -= dot * nz;
+          }
+        }
+      }
+
+      playerGroup.position.x = nextX;
+      playerGroup.position.z = nextZ;
+
+      if (targetPosition) {
+        const remainingDist = Math.hypot(targetPosition.x - nextX, targetPosition.z - nextZ);
+        if (remainingDist <= 0.15) {
+          targetPosition = null;
+          velocity.set(0, 0, 0);
+          isMoving = false;
+        }
+      }
 
       // Direção do personagem
       if (velocity.x < -0.15) facingRight = false;
@@ -731,10 +1019,16 @@
   // 10. Loop de Renderização
   const clock = new THREE.Clock();
 
+  // Inicialização dos chunks ao redor da posição inicial
+  checkChunkUpdates();
+
   function renderLoop() {
     const delta = Math.min(clock.getDelta(), 0.1);
+    const elapsedTime = clock.getElapsedTime();
 
+    checkChunkUpdates();
     updatePlayer(delta);
+    updateGrassSway(elapsedTime, playerGroup.position.x, playerGroup.position.z);
     updateParticles(delta);
     updateCamera(delta);
 
