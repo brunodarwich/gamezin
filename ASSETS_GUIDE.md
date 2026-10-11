@@ -42,6 +42,7 @@ O motor `game.js` detecta e carrega automaticamente os seguintes conjuntos de fr
 | **Correndo p/ Direita** | `player-run-right-a.png` e `player-run-right-b.png` | ~0.14s (~7 fps) | Balanço de passos com pulinho (`stepHop`) e poeira FX |
 | **Correndo p/ Esquerda** | `player-run-left-a.png` e `player-run-left-b.png` | ~0.14s (~7 fps) | Balanço de passos com pulinho (`stepHop`) e poeira FX |
 | **Mobs (Slimes)** | `mob-a-1.png` a `mob-a-4.png` | ~0.32s por frame (~3 fps) | Ciclo ping-pong `1>2>3>4>3>2>1`, velocidade 3x lenta, colisão mútua e Z-sorting |
+| **NPC Mestre Sábio** | `old-a.png` e `old-b.png` | Boca abre/fecha durante fala | `old-a.png` (padrão/repouso), `old-b.png` (falando com IA ou frases idle) |
 | **Vegetação (Gramas)** | `grama-a.png` a `grama-d.png` | Estático com sombra rente | 4 variantes de tufos assentados no chão; transponíveis |
 | **Obstáculos (Pedras)** | `pedra-a.png` a `pedra-c.png` | Estático com sombra rente | 3 variantes com colisão circular elástica e deslizamento suave |
 

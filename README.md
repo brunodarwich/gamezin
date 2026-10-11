@@ -219,23 +219,55 @@ O mapa conta com a presença de criaturas autônomas que povoam o cenário com v
 
 ---
 
-## 📁 8. Estrutura de Arquivos
+## 🪷 8. NPC Mestre Sábio (Ensinamentos do Corvo Seco & IA DeepSeek)
+
+O mapa conta com um sábio contemplativo localizado nas coordenadas **`(X: 10, Z: 10)`**, acompanhado de seu cajado e um gato sereno. O personagem é profundamente inspirado pela sabedoria de não-dualidade, autoinvestigação e quietude mental compartilhadas pelo canal **Corvo Seco** (Advaita Vedanta, Zen, Wu Hsin, Ramana Maharshi, Nisargadatta Maharaj).
+
+### 🧘‍♂️ Ciclo Idle de Ensinamentos (30 Frases Pré-definidas)
+- Quando o jogador está em seu campo de percepção (raio de até 12 unidades) sem interagir ativamente:
+- A cada `~11.5s`, o sábio profere um ensinamento reflexivo em um balão flutuante projetado diretamente sobre sua cabeça.
+- Durante a fala, a boca do ancião anima entre repouso (`old-a.png`) e aberta (`old-b.png`), voltando suavemente à quietude.
+- O jogo conta com um acervo de **30 frases poéticas e profundas** sobre a mente, o ego, o desapego e o instante presente.
+
+### 💬 Proximidade e Interação Cinemática
+- **Detecção de Proximidade:** Ao se aproximar a menos de `3.2 unidades`, surge o botão flutuante com indicação de tecla `E` e toque/clique para conversar.
+- **Enquadramento Cinemático:** Ao iniciar o diálogo:
+  - O movimento do jogador é travado em postura serena.
+  - A câmera realiza uma interpolação suave (LERP) para o ponto médio entre o viajante e o mestre.
+  - O zoom aumenta suavemente para `1.95x`.
+  - O sábio inicia com a saudação: *"O que traz sua mente inquieta até este silêncio, viajante?"*.
+
+### 🧠 Diálogo Vivo com IA (DeepSeek API)
+- **Barra de Entrada Responsiva:** Permite digitar livremente perguntas, reflexões ou sentimentos pelo teclado físico ou pelo teclado virtual do smartphone.
+- **Modelo e Persona:** Conectado à API do DeepSeek (`deepseek-v4-flash`), instruído com a persona acolhedora e meditativa do canal Corvo Seco.
+- **Limite de 5 Turnos e Desculpa Zen:**
+  - A conversa permite até **5 interações**.
+  - No 5º turno, a IA formula uma resposta contextual profunda e **inventa uma desculpa filosófica e poética com seu gato** para encerrar o diálogo (ex: que as palavras já cumpriram sua função de apontar o caminho, que agora é hora de praticar o silêncio, ou que o gato precisa de quietude).
+  - Após a fala final ser lida, a interface fecha suavemente, a câmera retorna ao zoom e ângulo original do jogador e os controles são liberados.
+  - A tecla `Esc` ou o botão `✕ Encerrar` permitem sair a qualquer momento.
+
+---
+
+## 📁 9. Estrutura de Arquivos
 
 ```
 gamezin/
-├── index.html              # Estrutura HTML5 com Canvas, Joystick e HUD
-├── style.css               # Estilização responsiva e tema orgânico #fcfbf8
-├── game.js                 # Motor principal Three.js 2.5D com todas as mecânicas
+├── index.html              # Estrutura HTML5 com Canvas, Joystick, HUD e Balão/Chat do NPC
+├── style.css               # Estilização responsiva, tema orgânico #fcfbf8 e UI do NPC
+├── game.js                 # Motor Three.js 2.5D, IA dos mobs, NPC Corvo Seco e DeepSeek API
 ├── three.min.js            # Biblioteca Three.js local (standalone offline)
 ├── manifest.json           # Manifesto PWA para tela cheia em dispositivos móveis
 ├── ASSETS_GUIDE.md         # Guia técnico para desenhar e exportar novos sprites
 │
-├── player.png              # Frame 1 de repouso (Idle)
-├── player-b.png            # Frame 2 de repouso (Idle)
-├── player-run-right-a.png  # Frame 1 de corrida para a direita
-├── player-run-right-b.png  # Frame 2 de corrida para a direita
-├── player-run-left-a.png   # Frame 1 de corrida para a esquerda
-├── player-run-left-b.png   # Frame 2 de corrida para a esquerda
+├── player.png              # Frame 1 de repouso do jogador (Idle)
+├── player-b.png            # Frame 2 de repouso do jogador (Idle)
+├── player-run-right-a.png  # Corrida para a direita (frame 1)
+├── player-run-right-b.png  # Corrida para a direita (frame 2)
+├── player-run-left-a.png   # Corrida para a esquerda (frame 1)
+├── player-run-left-b.png   # Corrida para a esquerda (frame 2)
+│
+├── old-a.png               # NPC Mestre Sábio (padrão / boca fechada)
+├── old-b.png               # NPC Mestre Sábio (falando / boca aberta)
 │
 ├── mob-a-1.png             # Frame 1 da criatura (esticado/repouso)
 ├── mob-a-2.png             # Frame 2 da criatura (início da contração)

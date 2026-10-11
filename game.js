@@ -459,8 +459,8 @@
       const rx = minX + (rand() * 0.88 + 0.06) * CHUNK_SIZE;
       const rz = minZ + (rand() * 0.88 + 0.06) * CHUNK_SIZE;
 
-      // Mantém a área inicial de spawn (0, 0) livre de pedras
-      if (Math.hypot(rx, rz) < 3.2) {
+      // Mantém a área inicial de spawn (0, 0) e a área do NPC (10, 10) livres de pedras
+      if (Math.hypot(rx, rz) < 3.2 || Math.hypot(rx - 10, rz - 10) < 3.0) {
         continue;
       }
 
@@ -715,6 +715,21 @@
             }
           }
 
+          // 4. Colisão física contra o NPC Mestre Sábio (impede sobreposição)
+          if (typeof npcPosition !== 'undefined') {
+            const dxN = nextX - npcPosition.x;
+            const dzN = nextZ - npcPosition.z;
+            const minDistN = mobRadius + npcRadius;
+            const distSqN = dxN * dxN + dzN * dzN;
+
+            if (distSqN < minDistN * minDistN) {
+              const distN = Math.sqrt(distSqN) || 0.001;
+              const overlapN = minDistN - distN;
+              nextX += (dxN / distN) * overlapN;
+              nextZ += (dzN / distN) * overlapN;
+            }
+          }
+
           mob.x = nextX;
           mob.z = nextZ;
           mob.group.position.x = nextX;
@@ -763,6 +778,458 @@
       }
     }
   }
+
+  // 5.3 NPC Mestre Sábio (Filosofia e Ensinamentos do Canal Corvo Seco)
+  const npcPosition = new THREE.Vector3(10.0, 0, 10.0);
+  const npcRadius = 0.55;
+  const NPC_HEIGHT = 2.45;
+  const NPC_WIDTH = 2.45;
+
+  const npcGroup = new THREE.Group();
+  npcGroup.position.copy(npcPosition);
+  scene.add(npcGroup);
+
+  // Sombra projetada do NPC no solo
+  const npcShadowGeo = new THREE.PlaneGeometry(1.8, 0.95);
+  const npcShadowMesh = new THREE.Mesh(npcShadowGeo, propShadowMat);
+  npcShadowMesh.rotation.x = -Math.PI / 2;
+  npcShadowMesh.position.set(0, 0.012, 0);
+  npcShadowMesh.renderOrder = 1;
+  npcGroup.add(npcShadowMesh);
+
+  // Mesh do NPC com rotação de contra-balanço isométrica (-20.6°)
+  const npcGeo = new THREE.PlaneGeometry(NPC_WIDTH, NPC_HEIGHT);
+  npcGeo.translate(0, NPC_HEIGHT / 2, 0); // Ancoragem na base dos pés (Y = 0)
+
+  const npcMat = new THREE.MeshBasicMaterial({
+    transparent: true,
+    alphaTest: 0.02,
+    side: THREE.DoubleSide,
+    depthWrite: false
+  });
+
+  const npcMesh = new THREE.Mesh(npcGeo, npcMat);
+  npcMesh.position.set(0, 0, 0);
+  npcMesh.rotation.x = -0.36;
+  npcMesh.renderOrder = BASE_SORT_ORDER + Math.round(npcPosition.z * 100);
+  npcGroup.add(npcMesh);
+
+  // Texturas do NPC (old-a: padrão / boca fechada, old-b: falando / boca aberta)
+  const npcTextures = {
+    idle: null,
+    talking: null
+  };
+
+  textureLoader.load('old-a.png', (tex) => {
+    tex.generateMipmaps = true;
+    tex.minFilter = THREE.LinearMipmapLinearFilter;
+    tex.magFilter = THREE.LinearFilter;
+    npcTextures.idle = tex;
+    if (npcMesh && !npcMesh.material.map) {
+      npcMesh.material.map = tex;
+      npcMesh.material.needsUpdate = true;
+    }
+  });
+
+  textureLoader.load('old-b.png', (tex) => {
+    tex.generateMipmaps = true;
+    tex.minFilter = THREE.LinearMipmapLinearFilter;
+    tex.magFilter = THREE.LinearFilter;
+    npcTextures.talking = tex;
+  });
+
+  // Configurações da API DeepSeek
+  const DEEPSEEK_CONFIG = {
+    apiKey: 'sk-3d51c1545e6748978fa84f9b9b9727fb',
+    model: 'deepseek-v4-flash',
+    endpoint: 'https://api.deepseek.com/chat/completions'
+  };
+
+  // 30 Frases e Ensinamentos Autênticos do Canal Corvo Seco (Advaita, Zen, Autoinvestigação)
+  const CORVO_SECO_QUOTES = [
+    "A mente é apenas o vento que passa; você é o espaço que nunca se move.",
+    "Não tente silenciar os pensamentos com força. Apenas perceba quem é que os observa.",
+    "A paz não é a ausência de tempestade, mas a presença de serenidade no centro dela.",
+    "Tudo o que vem e vai não é você. Você é aquilo que permanece imóvel.",
+    "Todo o sofrimento nasce do apego a uma ilusão passageira que você chama de 'eu'.",
+    "Olhe para o chão, olhe para este céu. Onde termina o mundo e onde você começa?",
+    "Aquele que procura a iluminação é a própria mente criando uma ilusão de distância.",
+    "Seja como a água límpida: ela não resiste à pedra, ela a contorna com suave paciência.",
+    "A pressa é a tentativa tola da mente de chegar a um lugar onde você já se encontra.",
+    "Silencie por um instante. O que sobra quando você não pensa no ontem nem no amanhã?",
+    "Você não possui uma vida isolada; você é a própria Vida em movimento.",
+    "A resposta que você tanto persegue não está nas palavras, mas no silêncio entre elas.",
+    "O ego quer remar contra o rio da existência; o sábio apenas mergulha e flui.",
+    "Nada do que acontece fora pode manchar a pureza daquilo que você verdadeiramente é.",
+    "O peso que você carrega nos ombros não é a sua jornada, são apenas suas expectativas.",
+    "Observe sem julgar. No instante em que você julga, você se separa da totalidade.",
+    "A verdadeira liberdade começa quando você descobre que não precisa provar nada a ninguém.",
+    "O gato ao meu lado não se inquieta com o amanhã. Ele simplesmente repousa no presente.",
+    "Construímos gaiolas com nossos medos e depois lamentamos a falta de espaço para voar.",
+    "Quando o observador se dissolve na observação, resta apenas a consciência tranquila.",
+    "Desapegar não é perder coisa alguma; é abrir as mãos para abraçar o infinito.",
+    "Não existe um caminho rumo à paz; a paz é a própria maneira de dar cada passo.",
+    "A mente cria problemas imaginários e depois passa os dias sofrendo para resolvê-los.",
+    "Acolha a incerteza com ternura. É no solo do não-saber que a sabedoria floresce.",
+    "Tudo o que ganha forma há de passar. Descanse naquilo que não tem princípio nem fim.",
+    "O silêncio interior não está vazio; ele está transbordando de harmonia e plenitude.",
+    "Você já é aquilo que tanto procura. Pare de perseguir seu próprio reflexo no espelho.",
+    "Aceitar o instante presente exatamente como ele se apresenta: esse é o descanso sagrado.",
+    "Deixe o mundo correr lá fora. Aqui dentro, neste instante, a quietude é soberana.",
+    "Respire profundamente, viajante. Este fôlego agora é a única realidade existente."
+  ];
+
+  // Estado do Diálogo e Animações de Fala
+  let inDialogue = false;
+  let dialogueTurnCount = 0;
+  const MAX_DIALOGUE_TURNS = 5;
+  let dialogueHistory = [];
+  let userPrevZoom = 1.0;
+  let isAwaitingAI = false;
+
+  let typewriterTimeout = null;
+  let mouthFlapInterval = null;
+  let isTypingSpeech = false;
+  let idleQuoteTimer = 0;
+  const IDLE_QUOTE_INTERVAL = 11.5; // Balão de ensinamento a cada ~11.5 segundos
+  let idleQuoteIndex = Math.floor(Math.random() * CORVO_SECO_QUOTES.length);
+  let idleHideTimeout = null;
+
+  function stopSpeechAnimation() {
+    if (typewriterTimeout) {
+      clearTimeout(typewriterTimeout);
+      typewriterTimeout = null;
+    }
+    if (mouthFlapInterval) {
+      clearInterval(mouthFlapInterval);
+      mouthFlapInterval = null;
+    }
+    isTypingSpeech = false;
+    if (npcMesh && npcTextures.idle) {
+      npcMesh.material.map = npcTextures.idle;
+      npcMesh.material.needsUpdate = true;
+    }
+  }
+
+  // Exibe texto com efeito de digitação e animação da boca (old-a <-> old-b)
+  function displaySpeechText(text, tag = '', onComplete = null) {
+    stopSpeechAnimation();
+
+    const bubbleEl = document.getElementById('npcSpeechBubble');
+    const textEl = document.getElementById('npcSpeechText');
+    const tagEl = document.getElementById('speechStateTag');
+
+    if (!bubbleEl || !textEl) return;
+
+    bubbleEl.classList.remove('npc-ui-hidden');
+    if (tagEl) tagEl.textContent = tag;
+    textEl.textContent = '';
+
+    isTypingSpeech = true;
+    let charIndex = 0;
+    const speed = 25; // Velocidade agradável de leitura (ms/char)
+
+    // Alterna a boca aberta/fechada durante a fala
+    let mouthOpen = false;
+    mouthFlapInterval = setInterval(() => {
+      if (!isTypingSpeech || !npcMesh) return;
+      mouthOpen = !mouthOpen;
+      const targetTex = mouthOpen ? (npcTextures.talking || npcTextures.idle) : npcTextures.idle;
+      if (targetTex && npcMesh.material.map !== targetTex) {
+        npcMesh.material.map = targetTex;
+        npcMesh.material.needsUpdate = true;
+      }
+    }, 220);
+
+    function typeNextChar() {
+      if (charIndex < text.length) {
+        textEl.textContent += text.charAt(charIndex);
+        charIndex++;
+        typewriterTimeout = setTimeout(typeNextChar, speed);
+      } else {
+        stopSpeechAnimation();
+        if (onComplete) onComplete();
+      }
+    }
+
+    typeNextChar();
+  }
+
+  // Ciclo Idle de Ensinamentos do Corvo Seco
+  function triggerIdleQuote() {
+    if (inDialogue) return;
+    const quote = CORVO_SECO_QUOTES[idleQuoteIndex];
+    idleQuoteIndex = (idleQuoteIndex + 1) % CORVO_SECO_QUOTES.length;
+
+    displaySpeechText(quote, 'Ensinamento', () => {
+      if (idleHideTimeout) clearTimeout(idleHideTimeout);
+      idleHideTimeout = setTimeout(() => {
+        if (!inDialogue) {
+          const bubbleEl = document.getElementById('npcSpeechBubble');
+          if (bubbleEl) bubbleEl.classList.add('npc-ui-hidden');
+        }
+      }, 5000);
+    });
+  }
+
+  // Início da Conversa com o Mestre
+  function startDialogue() {
+    if (inDialogue) return;
+    inDialogue = true;
+    dialogueTurnCount = 0;
+    dialogueHistory = [];
+    userPrevZoom = targetZoom;
+    targetZoom = 1.95; // Zoom cinemático no mestre e no viajante
+
+    // Trava movimento do jogador
+    targetPosition = null;
+    velocity.set(0, 0, 0);
+    isMoving = false;
+
+    // Esconde prompt de aproximação
+    const promptEl = document.getElementById('npcPrompt');
+    if (promptEl) promptEl.classList.add('npc-ui-hidden');
+
+    // Abre barra de chat de diálogo
+    const chatBar = document.getElementById('npcChatBar');
+    const turnCountEl = document.getElementById('interactionTurnCount');
+    const inputEl = document.getElementById('npcChatInput');
+    const sendBtn = document.getElementById('btnSendChat');
+
+    if (chatBar) chatBar.classList.remove('npc-ui-hidden');
+    if (turnCountEl) turnCountEl.textContent = '0';
+    if (inputEl) {
+      inputEl.value = '';
+      inputEl.disabled = false;
+      setTimeout(() => inputEl.focus(), 250);
+    }
+    if (sendBtn) sendBtn.disabled = false;
+
+    // Saudação reflexiva inicial do sábio
+    const initialGreeting = "O que traz sua mente inquieta até este silêncio, viajante?";
+    dialogueHistory.push({ role: 'assistant', content: initialGreeting });
+    displaySpeechText(initialGreeting, 'Diálogo');
+  }
+
+  // Encerramento da Conversa
+  function endDialogue(farewellMessage = null) {
+    if (!inDialogue) return;
+    inDialogue = false;
+    isAwaitingAI = false;
+    targetZoom = Math.min(Math.max(userPrevZoom, MIN_ZOOM), MAX_ZOOM);
+
+    const chatBar = document.getElementById('npcChatBar');
+    if (chatBar) chatBar.classList.add('npc-ui-hidden');
+
+    if (farewellMessage) {
+      displaySpeechText(farewellMessage, 'Despedida', () => {
+        setTimeout(() => {
+          const bubbleEl = document.getElementById('npcSpeechBubble');
+          if (bubbleEl) bubbleEl.classList.add('npc-ui-hidden');
+          stopSpeechAnimation();
+        }, 3800);
+      });
+    } else {
+      const bubbleEl = document.getElementById('npcSpeechBubble');
+      if (bubbleEl) bubbleEl.classList.add('npc-ui-hidden');
+      stopSpeechAnimation();
+    }
+  }
+
+  // Envio de Mensagem para a IA DeepSeek
+  async function handlePlayerSend() {
+    if (!inDialogue || isAwaitingAI) return;
+    const inputEl = document.getElementById('npcChatInput');
+    const sendBtn = document.getElementById('btnSendChat');
+    const turnCountEl = document.getElementById('interactionTurnCount');
+
+    const text = inputEl ? inputEl.value.trim() : '';
+    if (!text) return;
+
+    dialogueTurnCount++;
+    if (turnCountEl) turnCountEl.textContent = String(dialogueTurnCount);
+    dialogueHistory.push({ role: 'user', content: text });
+
+    if (inputEl) {
+      inputEl.value = '';
+      inputEl.disabled = true;
+    }
+    if (sendBtn) sendBtn.disabled = true;
+    isAwaitingAI = true;
+
+    const isFinalTurn = (dialogueTurnCount >= MAX_DIALOGUE_TURNS);
+    const bubbleText = document.getElementById('npcSpeechText');
+    const bubbleTag = document.getElementById('speechStateTag');
+    if (bubbleTag) bubbleTag.textContent = 'Contemplando...';
+    if (bubbleText) bubbleText.textContent = '...';
+
+    try {
+      let systemPrompt = `Você é o Mestre Sábio, um ancião sereno, lúcido e acolhedor acompanhado de seu gato tranquilo ao lado, inspirado nos ensinamentos de não-dualidade do canal "Corvo Seco" (Advaita Vedanta, Zen, Taoísmo, Nisargadatta Maharaj, Ramana Maharshi, Wu Hsin).
+DIRETRIZES:
+1. Seja sempre breve, profundo e poético (no máximo 2 a 3 frases curtas para caber com elegância no balão de fala do jogo).
+2. Aponte para a autoinvestigação, o silêncio da mente, a dissolução das ilusões do ego e a paz do momento presente.
+3. Responda em português brasileiro suave, sem tópicos ou listas.`;
+
+      if (isFinalTurn) {
+        systemPrompt += `\nESTE É O 5º E ÚLTIMO TURNO DE CONVERSA: Você DEVE responder de forma profunda ao que o viajante disse e, em seguida, inventar uma desculpa sábia, poética ou bem-humorada com seu gato para encerrar o diálogo (por exemplo: que as palavras já cumpriram seu papel de apontar o caminho, que agora é hora de praticar o silêncio em seus passos, ou que você e seu gato precisam contemplar a brisa em quietude). Despeça-se cordialmente.`;
+      }
+
+      const response = await fetch(DEEPSEEK_CONFIG.endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${DEEPSEEK_CONFIG.apiKey}`
+        },
+        body: JSON.stringify({
+          model: DEEPSEEK_CONFIG.model,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            ...dialogueHistory
+          ],
+          max_tokens: 180,
+          temperature: 0.7
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error ${response.status}`);
+      }
+
+      const data = await response.json();
+      const reply = data.choices && data.choices[0] && data.choices[0].message
+        ? data.choices[0].message.content.trim()
+        : "O silêncio agora ensina mais do que qualquer palavra...";
+
+      dialogueHistory.push({ role: 'assistant', content: reply });
+
+      displaySpeechText(reply, isFinalTurn ? 'Encerramento' : 'Mestre', () => {
+        if (isFinalTurn) {
+          // Após ler o último ensinamento, encerra automaticamente a conversa
+          setTimeout(() => {
+            endDialogue();
+          }, 4500);
+        } else {
+          if (inputEl) {
+            inputEl.disabled = false;
+            inputEl.focus();
+          }
+          if (sendBtn) sendBtn.disabled = false;
+          isAwaitingAI = false;
+        }
+      });
+    } catch (err) {
+      console.warn('DeepSeek API fallback:', err);
+      const fallbackQuotes = [
+        "As palavras se perderam na névoa, mas a verdade do silêncio continua viva e serena dentro de você.",
+        "O vento levou a resposta. Olhe para dentro de si mesmo neste instante e você a encontrará.",
+        "Não se prenda à dependência de respostas externas. A quietude é seu mestre supremo."
+      ];
+      const fallback = fallbackQuotes[Math.floor(Math.random() * fallbackQuotes.length)];
+      dialogueHistory.push({ role: 'assistant', content: fallback });
+
+      displaySpeechText(fallback, isFinalTurn ? 'Encerramento' : 'Reflexão', () => {
+        if (isFinalTurn) {
+          setTimeout(() => endDialogue(), 4000);
+        } else {
+          if (inputEl) {
+            inputEl.disabled = false;
+            inputEl.focus();
+          }
+          if (sendBtn) sendBtn.disabled = false;
+          isAwaitingAI = false;
+        }
+      });
+    }
+  }
+
+  // Projeção das Coordenadas 3D para a Interface em Tela
+  const tempNpcVec = new THREE.Vector3();
+  function updateNpcUI() {
+    if (!npcGroup) return;
+
+    // Projeta ponto acima da cabeça do NPC (Y ~ 2.45)
+    tempNpcVec.setFromMatrixPosition(npcGroup.matrixWorld);
+    tempNpcVec.y += 2.45;
+    tempNpcVec.project(camera);
+
+    const isBehind = tempNpcVec.z > 1;
+    const screenX = (tempNpcVec.x * 0.5 + 0.5) * window.innerWidth;
+    const screenY = (-(tempNpcVec.y * 0.5) + 0.5) * window.innerHeight;
+
+    const bubbleEl = document.getElementById('npcSpeechBubble');
+    const promptEl = document.getElementById('npcPrompt');
+
+    if (bubbleEl) {
+      bubbleEl.style.left = `${screenX}px`;
+      bubbleEl.style.top = `${screenY}px`;
+    }
+
+    if (promptEl) {
+      promptEl.style.left = `${screenX}px`;
+      promptEl.style.top = `${screenY - 12}px`;
+    }
+
+    // Distância do jogador ao NPC
+    const distToNpc = Math.hypot(
+      playerGroup.position.x - npcPosition.x,
+      playerGroup.position.z - npcPosition.z
+    );
+
+    // Prompt de Interação flutuante
+    if (!inDialogue) {
+      if (distToNpc <= 3.2 && !isBehind) {
+        if (promptEl) promptEl.classList.remove('npc-ui-hidden');
+      } else {
+        if (promptEl) promptEl.classList.add('npc-ui-hidden');
+      }
+    } else {
+      if (promptEl) promptEl.classList.add('npc-ui-hidden');
+    }
+  }
+
+  // Atualização Geral do NPC no Loop
+  function updateNpc(delta) {
+    updateNpcUI();
+
+    const distToNpc = Math.hypot(
+      playerGroup.position.x - npcPosition.x,
+      playerGroup.position.z - npcPosition.z
+    );
+
+    // Ciclo de falas idle quando o jogador estiver a até 12 unidades de distância
+    if (!inDialogue) {
+      if (distToNpc <= 12.0) {
+        idleQuoteTimer += delta;
+        if (idleQuoteTimer >= IDLE_QUOTE_INTERVAL) {
+          idleQuoteTimer = 0;
+          triggerIdleQuote();
+        }
+      } else {
+        idleQuoteTimer = 0;
+        const bubbleEl = document.getElementById('npcSpeechBubble');
+        if (bubbleEl && !bubbleEl.classList.contains('npc-ui-hidden')) {
+          bubbleEl.classList.add('npc-ui-hidden');
+          stopSpeechAnimation();
+        }
+      }
+    }
+  }
+
+  // Event Listeners dos Elementos de Diálogo do NPC
+  document.getElementById('btnNpcInteract')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    startDialogue();
+  });
+
+  document.getElementById('btnCloseChat')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    endDialogue();
+  });
+
+  document.getElementById('npcChatForm')?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    handlePlayerSend();
+  });
   const velocity = new THREE.Vector3();
   const inputVector = new THREE.Vector2();
   let targetPosition = null;
@@ -791,6 +1258,31 @@
   };
 
   window.addEventListener('keydown', (e) => {
+    // Se o jogador estiver digitando na caixa de chat, não processa movimentação nem atalhos do jogo
+    if (document.activeElement && document.activeElement.tagName === 'INPUT') {
+      if (e.key === 'Escape' && inDialogue) {
+        endDialogue();
+      }
+      return;
+    }
+
+    // Tecla 'E' para interagir com o Mestre Sábio quando próximo
+    if (e.key === 'e' || e.key === 'E') {
+      const dist = Math.hypot(playerGroup.position.x - npcPosition.x, playerGroup.position.z - npcPosition.z);
+      if (dist <= 3.5 && !inDialogue) {
+        e.preventDefault();
+        startDialogue();
+        return;
+      }
+    }
+
+    // Tecla Escape encerra o diálogo
+    if (e.key === 'Escape' && inDialogue) {
+      e.preventDefault();
+      endDialogue();
+      return;
+    }
+
     const k = e.key.toLowerCase();
     if (k === 'w' || e.code === 'ArrowUp') keys.up = true;
     if (k === 's' || e.code === 'ArrowDown') keys.down = true;
@@ -907,11 +1399,18 @@
   const mousePointer = new THREE.Vector2();
 
   window.addEventListener('pointerdown', (e) => {
+    // Ignora cliques se estiver em diálogo ativo
+    if (inDialogue) return;
+
     // Ignora cliques que não sejam o botão principal (botão esquerdo / toque)
     if (e.button !== undefined && e.button !== 0) return;
 
-    // Ignora cliques no joystick ou controles de zoom
-    if (e.target.closest('#joystickZone') || e.target.closest('#zoomControls')) return;
+    // Ignora cliques no joystick, controles de zoom ou UI do NPC
+    if (e.target.closest('#joystickZone') ||
+        e.target.closest('#zoomControls') ||
+        e.target.closest('#npcPrompt') ||
+        e.target.closest('#npcChatBar') ||
+        e.target.closest('#npcSpeechBubble')) return;
 
     mousePointer.x = (e.clientX / window.innerWidth) * 2 - 1;
     mousePointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
@@ -965,6 +1464,22 @@
 
   // 8. Loop Principal de Atualização do Jogador
   function updatePlayer(delta) {
+    if (inDialogue) {
+      isMoving = false;
+      velocity.set(0, 0, 0);
+      targetPosition = null;
+
+      // Mantém a sutil microanimação de respiração no estado parado
+      if (playerMesh) {
+        playerMesh.renderOrder = BASE_SORT_ORDER + Math.round(playerGroup.position.z * 100);
+        idleClock += delta * 2.2;
+        playerMesh.position.y = BASE_Y + Math.sin(idleClock) * 0.025;
+        playerMesh.rotation.z = 0;
+        if (shadowMesh) shadowMesh.scale.set(1, 1, 1);
+      }
+      return;
+    }
+
     inputVector.set(0, 0);
 
     // Entrada: Teclado
@@ -1059,6 +1574,30 @@
           nextZ += nz * overlap;
 
           // Desliza a velocidade tangencialmente ao contorno do mob
+          const dot = velocity.x * nx + velocity.z * nz;
+          if (dot < 0) {
+            velocity.x -= dot * nx;
+            velocity.z -= dot * nz;
+          }
+        }
+      }
+
+      // 3. Colisão elástica e deslizamento suave com o NPC Mestre Sábio
+      if (typeof npcPosition !== 'undefined') {
+        const dxNpc = nextX - npcPosition.x;
+        const dzNpc = nextZ - npcPosition.z;
+        const minDistNpc = playerRadius + npcRadius;
+        const distSqNpc = dxNpc * dxNpc + dzNpc * dzNpc;
+
+        if (distSqNpc < minDistNpc * minDistNpc) {
+          const distN = Math.sqrt(distSqNpc) || 0.001;
+          const overlapN = minDistNpc - distN;
+          const nx = dxNpc / distN;
+          const nz = dzNpc / distN;
+
+          nextX += nx * overlapN;
+          nextZ += nz * overlapN;
+
           const dot = velocity.x * nx + velocity.z * nz;
           if (dot < 0) {
             velocity.x -= dot * nx;
@@ -1196,17 +1735,26 @@
     camera.zoom = currentZoom;
     camera.updateProjectionMatrix();
 
-    // LERP suave seguindo o jogador (amortecimento elástico 0.08)
-    const targetCamX = playerGroup.position.x;
-    const targetCamZ = playerGroup.position.z + camOffsetZ;
-    const targetCamY = camOffsetY;
+    // LERP suave seguindo o jogador ou o enquadramento cinemático no diálogo
+    let targetCamX = playerGroup.position.x;
+    let targetCamZ = playerGroup.position.z + camOffsetZ;
+    let targetCamY = camOffsetY;
+
+    if (inDialogue && typeof npcPosition !== 'undefined') {
+      // Ponto médio entre o jogador e o Mestre Sábio
+      targetCamX = (playerGroup.position.x + npcPosition.x) * 0.5;
+      targetCamZ = (playerGroup.position.z + npcPosition.z) * 0.5 + (camOffsetZ * 0.65);
+      targetCamY = camOffsetY * 0.72;
+    }
 
     camera.position.x += (targetCamX - camera.position.x) * 0.08;
     camera.position.z += (targetCamZ - camera.position.z) * 0.08;
-    camera.position.y = targetCamY;
+    camera.position.y += (targetCamY - camera.position.y) * 0.08;
 
-    // Foco ligeiramente acima do solo (Y = 1.0)
-    camera.lookAt(camera.position.x, 1.0, camera.position.z - camOffsetZ);
+    // Foco cinematográfico
+    const lookTargetX = (inDialogue && typeof npcPosition !== 'undefined') ? (playerGroup.position.x + npcPosition.x) * 0.5 : camera.position.x;
+    const lookTargetZ = (inDialogue && typeof npcPosition !== 'undefined') ? (playerGroup.position.z + npcPosition.z) * 0.5 : (camera.position.z - camOffsetZ);
+    camera.lookAt(lookTargetX, 1.0, lookTargetZ);
 
     // Chão infinito segue a posição do jogador de forma transparente
     groundPlane.position.x = playerGroup.position.x;
@@ -1236,6 +1784,7 @@
     checkChunkUpdates();
     updatePlayer(delta);
     updateMobs(delta);
+    if (typeof updateNpc === 'function') updateNpc(delta);
     updateParticles(delta);
     updateCamera(delta);
 
