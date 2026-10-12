@@ -248,13 +248,27 @@ O mapa conta com um sábio contemplativo localizado nas coordenadas **`(X: 10, Z
 
 ---
 
-## 📁 9. Estrutura de Arquivos
+## 🧙‍♂️ 9. Mago Flutuante Místico (Aparição Efêmera & Levitação)
+
+O mundo conta com a presença misteriosa do **Mago Flutuante**, uma entidade mística que transita suavemente entre o visível e o invisível.
+
+### ✨ Mecânica e Comportamento
+- **Materialização e Desaparecimento (Fade In / Fade Out):** O mago surge gradualmente com uma transição suave de opacidade (`smoothstep`), permanece ativo no mapa por **15 a 25 segundos** e se desmaterializa de forma etérea, ficando invisível por **10 a 20 segundos** antes de reaparecer em outro ponto do cenário.
+- **Física de Levitação:** Flutua elevado a **`+1.25 unidades`** acima do chão, com oscilação vertical suave (`bobbing` senoidal).
+- **Sombra Dinâmica no Solo:** Possui uma sombra elíptica projetada no chão que expande, contrai e modula sua opacidade dinamicamente conforme o mago sobe, desce ou entra em fade.
+- **Navegação Ondulada em Zig-Zag:** Percorre o mapa com movimentos ondulatórios sutis, rondando suavemente em torno do Viajante e do Mestre Velho a uma distância confortável de **3 a 5 unidades**, sem colidir.
+- **Loop de Animação de 19 Poses:** Executa continuamente o ciclo ritualístico a ~0.16s por passo:
+  $$A \to B \to A \to B \to A \to B \to C \to C \to D \to C \to E \to E \to C \to C \to C \to A \to A \to B \to A$$
+
+---
+
+## 📁 10. Estrutura de Arquivos
 
 ```
 gamezin/
 ├── index.html              # Estrutura HTML5 com Canvas, Joystick, HUD e Balão/Chat do NPC
 ├── style.css               # Estilização responsiva, tema orgânico #fcfbf8 e UI do NPC
-├── game.js                 # Motor Three.js 2.5D, IA dos mobs, NPC Corvo Seco e DeepSeek API
+├── game.js                 # Motor Three.js 2.5D, IA dos mobs, NPC Corvo Seco e Mago Flutuante
 ├── three.min.js            # Biblioteca Three.js local (standalone offline)
 ├── manifest.json           # Manifesto PWA para tela cheia em dispositivos móveis
 ├── ASSETS_GUIDE.md         # Guia técnico para desenhar e exportar novos sprites
@@ -268,6 +282,12 @@ gamezin/
 │
 ├── old-a.png               # NPC Mestre Sábio (padrão / boca fechada)
 ├── old-b.png               # NPC Mestre Sábio (falando / boca aberta)
+│
+├── mago-a.png              # Mago Flutuante - Pose A
+├── mago-b.png              # Mago Flutuante - Pose B
+├── mago-c.png              # Mago Flutuante - Pose C
+├── mago-d.png              # Mago Flutuante - Pose D
+├── mago-e.png              # Mago Flutuante - Pose E
 │
 ├── mob-a-1.png             # Frame 1 da criatura (esticado/repouso)
 ├── mob-a-2.png             # Frame 2 da criatura (início da contração)
@@ -286,7 +306,7 @@ gamezin/
 
 ---
 
-## 🚀 9. Como Executar e Testar
+## 🚀 11. Como Executar e Testar
 
 Como o projeto é construído em JavaScript puro e Three.js local, basta servi-lo por qualquer servidor estático HTTP:
 

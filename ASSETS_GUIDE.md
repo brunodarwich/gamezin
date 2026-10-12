@@ -12,6 +12,7 @@ No Three.js, os objetos são medidos em unidades de mundo 3D. O personagem possu
 | :--- | :--- | :--- | :--- | :--- |
 | **Personagem Principal** | **`512 x 512 px`** (POT) | Em pé, corpo inteiro, pés rentes à base inferior | Altura: `2.0` / Largura: `2.0 * aspect` | `rotation.x = -0.36` |
 | **Mobs & Criaturas** | **`512 x 512 px`** (POT) | Arte apoiada no centro inferior do quadro | Escala: `1.9` (Pivô no centro inferior) | `rotation.x = -0.36` |
+| **Mago Flutuante** | **`512 x 512 px`** (POT) | Levitando, corpo inteiro | Altura: `2.0` (Elevado `+1.25Y` no ar) | `rotation.x = -0.36` |
 | **Itens & Coletáveis** | **`256 x 256 px`** | Em pé ou repousado | Altura: `0.6` a `0.8` | `rotation.x = -0.36` |
 | **Arbustos & Vegetação** | **`512 x 256 px`** ou **`512 x 512 px`** | Base reta no chão | Altura: `0.8` a `1.4` | `rotation.x = -0.36` |
 | **Estruturas / Cenários** | **`512 x 512 px`** a **`1024 x 1024 px`** | Base no chão | Altura: `2.5` a `4.0` | `rotation.x = -0.36` |
@@ -43,6 +44,7 @@ O motor `game.js` detecta e carrega automaticamente os seguintes conjuntos de fr
 | **Correndo p/ Esquerda** | `player-run-left-a.png` e `player-run-left-b.png` | ~0.14s (~7 fps) | Balanço de passos com pulinho (`stepHop`) e poeira FX |
 | **Mobs (Slimes)** | `mob-a-1.png` a `mob-a-4.png` | ~0.32s por frame (~3 fps) | Ciclo ping-pong `1>2>3>4>3>2>1`, velocidade 3x lenta, colisão mútua e Z-sorting |
 | **NPC Mestre Sábio** | `old-a.png` e `old-b.png` | Boca abre/fecha durante fala | `old-a.png` (padrão/repouso), `old-b.png` (falando com IA ou frases idle) |
+| **Mago Flutuante** | `mago-a.png` a `mago-e.png` | ~0.16s por frame (~3s ciclo) | Sequência de 19 poses: `A>B>A>B>A>B>C>C>D>C>E>E>C>C>C>A>A>B>A`. Levitação elevada (+1.25Y), sombra dinâmica no solo, fade in/out (15~25s ativo) e flutuação em zig-zag |
 | **Vegetação (Gramas)** | `grama-a.png` a `grama-d.png` | Estático com sombra rente | 4 variantes de tufos assentados no chão; transponíveis |
 | **Obstáculos (Pedras)** | `pedra-a.png` a `pedra-c.png` | Estático com sombra rente | 3 variantes com colisão circular elástica e deslizamento suave |
 | **Árvores & Cenário** | `arvore-a.png` (1024x1024 px) | Estático com sombra de tronco | Árvore frondosa majestosa com colisão sólida no tronco, copa transponível em 2.5D e Z-sorting |

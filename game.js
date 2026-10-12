@@ -1418,6 +1418,232 @@ DIRETRIZES:
       hidePlayerSpeech(0);
     }
   });
+
+  // =========================================================================
+  // 5.4 Mago Flutuante Místico (Aparição Efémera, Levitação e Dança Ondulada)
+  // =========================================================================
+  const WIZARD_HEIGHT = 2.0;
+  const WIZARD_WIDTH = 2.0;
+  const WIZARD_BASE_ELEVATION = 1.25; // Levitação visivelmente acima do chão
+  const WIZARD_SPEED = 1.5;           // Velocidade serena e contemplativa
+  const WIZARD_FRAME_TIME = 0.16;     // Cadência de troca dos quadros de pose (~3s ciclo total)
+
+  // Sequência do ciclo exato de 19 poses especificado:
+  // A > B > A > B > A > B > C > C > D > C > E > E > C > C > C > A > A > B > A
+  const WIZARD_ANIM_SEQUENCE = [
+    'a', 'b', 'a', 'b', 'a', 'b',
+    'c', 'c', 'd', 'c', 'e', 'e',
+    'c', 'c', 'c',
+    'a', 'a', 'b', 'a'
+  ];
+
+  const wizardGroup = new THREE.Group();
+  wizardGroup.position.set(0, 0, 0);
+  wizardGroup.visible = false;
+  scene.add(wizardGroup);
+
+  // Sombra dinâmica projetada no solo
+  const wizardShadowGeo = new THREE.PlaneGeometry(1.5, 0.85);
+  const wizardShadowMat = new THREE.MeshBasicMaterial({
+    map: createShadowTexture(),
+    transparent: true,
+    depthWrite: false,
+    opacity: 0.0
+  });
+  const wizardShadowMesh = new THREE.Mesh(wizardShadowGeo, wizardShadowMat);
+  wizardShadowMesh.rotation.x = -Math.PI / 2;
+  wizardShadowMesh.position.set(0, 0.015, 0);
+  wizardShadowMesh.renderOrder = 2;
+  wizardGroup.add(wizardShadowMesh);
+
+  // Mesh do Mago com geometria centrada e contra-inclinação billboard isométrica (-20.6°)
+  const wizardGeo = new THREE.PlaneGeometry(WIZARD_WIDTH, WIZARD_HEIGHT);
+  const wizardMat = new THREE.MeshBasicMaterial({
+    transparent: true,
+    opacity: 0.0,
+    alphaTest: 0.005,
+    side: THREE.DoubleSide,
+    depthWrite: false
+  });
+  const wizardMesh = new THREE.Mesh(wizardGeo, wizardMat);
+  wizardMesh.position.set(0, (WIZARD_HEIGHT / 2) + WIZARD_BASE_ELEVATION, 0);
+  wizardMesh.rotation.x = -0.36;
+  wizardGroup.add(wizardMesh);
+
+  // Carregamento assíncrono dos 5 sprites do mago (A a E)
+  const wizardTextures = { a: null, b: null, c: null, d: null, e: null };
+  ['a', 'b', 'c', 'd', 'e'].forEach((key) => {
+    textureLoader.load(`mago-${key}.png`, (tex) => {
+      tex.generateMipmaps = true;
+      tex.minFilter = THREE.LinearMipmapLinearFilter;
+      tex.magFilter = THREE.LinearFilter;
+      wizardTextures[key] = tex;
+      if (key === 'a' && !wizardMesh.material.map) {
+        wizardMesh.material.map = tex;
+        wizardMesh.material.needsUpdate = true;
+      }
+    });
+  });
+
+  // Estado e Temporizadores do Mago
+  let wizardState = 'invisible'; // 'invisible' | 'fadeIn' | 'floating' | 'fadeOut'
+  let wizardCurrentOpacity = 0.0;
+  let wizardInvisibleTimer = 3.5; // Começa brevemente (3.5s) para o jogador ver logo ao testar; depois varia 10~20s
+  let wizardActiveTimer = 0.0;
+  let wizardActiveDuration = 18.0; // 15 ~ 25s
+  let wizardFadeTimer = 0.0;
+  let wizardFadeDuration = 2.0;
+
+  let wizardHoverTime = 0.0;
+  let wizardAnimTimer = 0.0;
+  let wizardAnimIndex = 0;
+  let wizardFacingRight = false;
+
+  let wizardTargetMode = 'player'; // Alterna entre 'player' e 'npc'
+  let wizardTargetSwitchTimer = 6.0;
+
+  function respawnWizard() {
+    // Escolhe ponto de ancoragem próximo ao jogador ou ao mestre velho
+    const hasNpc = typeof npcPosition !== 'undefined';
+    wizardTargetMode = (hasNpc && Math.random() < 0.5) ? 'npc' : 'player';
+    const anchor = (wizardTargetMode === 'npc' && hasNpc) ? npcPosition : playerGroup.position;
+
+    // Sorteia posição em raio suave de 5.0 a 7.5 unidades
+    const angle = Math.random() * Math.PI * 2;
+    const dist = 5.0 + Math.random() * 2.5;
+    wizardGroup.position.set(
+      anchor.x + Math.cos(angle) * dist,
+      0,
+      anchor.z + Math.sin(angle) * dist
+    );
+
+    wizardState = 'fadeIn';
+    wizardFadeTimer = 0.0;
+    wizardFadeDuration = 2.0;
+    wizardCurrentOpacity = 0.0;
+    wizardGroup.visible = true;
+
+    // Define duração de permanência ativa entre 15 e 25 segundos
+    wizardActiveDuration = 15.0 + Math.random() * 10.0;
+    wizardActiveTimer = 0.0;
+    wizardTargetSwitchTimer = 5.0 + Math.random() * 4.0;
+  }
+
+  function updateWizard(delta) {
+    wizardHoverTime += delta;
+
+    // 1. Máquina de Estados de Presença (Invisibilidade, Fade In, Flutuação, Fade Out)
+    if (wizardState === 'invisible') {
+      wizardCurrentOpacity = 0.0;
+      wizardGroup.visible = false;
+      wizardInvisibleTimer -= delta;
+      if (wizardInvisibleTimer <= 0) {
+        respawnWizard();
+      }
+      return;
+    } else if (wizardState === 'fadeIn') {
+      wizardFadeTimer += delta;
+      const progress = Math.min(1.0, wizardFadeTimer / wizardFadeDuration);
+      // Easing suave (smoothstep)
+      wizardCurrentOpacity = progress * progress * (3.0 - 2.0 * progress);
+      if (progress >= 1.0) {
+        wizardState = 'floating';
+        wizardCurrentOpacity = 1.0;
+      }
+    } else if (wizardState === 'floating') {
+      wizardCurrentOpacity = 1.0;
+      wizardActiveTimer += delta;
+      if (wizardActiveTimer >= wizardActiveDuration) {
+        wizardState = 'fadeOut';
+        wizardFadeTimer = 0.0;
+        wizardFadeDuration = 2.2;
+      }
+    } else if (wizardState === 'fadeOut') {
+      wizardFadeTimer += delta;
+      const progress = Math.min(1.0, wizardFadeTimer / wizardFadeDuration);
+      wizardCurrentOpacity = 1.0 - (progress * progress * (3.0 - 2.0 * progress));
+      if (progress >= 1.0) {
+        wizardState = 'invisible';
+        wizardCurrentOpacity = 0.0;
+        wizardGroup.visible = false;
+        // Intervalo moderado acordado: 10 a 20 segundos invisível
+        wizardInvisibleTimer = 10.0 + Math.random() * 10.0;
+        return;
+      }
+    }
+
+    // 2. Levitação com Ondulação Vertical e Sombra Pulsante
+    const bobY = Math.sin(wizardHoverTime * 2.2) * 0.16 + Math.cos(wizardHoverTime * 1.1) * 0.06;
+    wizardMesh.position.y = (WIZARD_HEIGHT / 2) + WIZARD_BASE_ELEVATION + bobY;
+
+    // Sombra no solo: escala e opacidade adaptam-se dinamicamente à altura e ao fade
+    const shadowScale = 1.0 - (bobY / 0.16) * 0.18;
+    wizardShadowMesh.scale.set(1.5 * shadowScale, 0.85 * shadowScale, 1.0);
+    wizardShadowMat.opacity = wizardCurrentOpacity * 0.28 * (1.0 - bobY * 0.3);
+    wizardMat.opacity = wizardCurrentOpacity;
+
+    // 3. IA de Navegação em Zig-Zag Suave / Ondulado
+    wizardTargetSwitchTimer -= delta;
+    if (wizardTargetSwitchTimer <= 0) {
+      const hasNpc = typeof npcPosition !== 'undefined';
+      wizardTargetMode = (wizardTargetMode === 'player' && hasNpc) ? 'npc' : 'player';
+      wizardTargetSwitchTimer = 6.0 + Math.random() * 5.0;
+    }
+
+    const currentAnchor = (wizardTargetMode === 'npc' && typeof npcPosition !== 'undefined')
+      ? npcPosition
+      : playerGroup.position;
+
+    const dx = currentAnchor.x - wizardGroup.position.x;
+    const dz = currentAnchor.z - wizardGroup.position.z;
+    const distToTarget = Math.hypot(dx, dz) || 0.001;
+
+    // Distância confortável alinhada: ~3.5 a 4.5 unidades (não fica grudado nem vai embora)
+    const desiredDist = 4.0;
+    const nx = dx / distToTarget;
+    const nz = dz / distToTarget;
+    const perpX = -nz;
+    const perpZ = nx;
+
+    // Componente de aproximação/afastamento radial suave
+    const radialDistDiff = distToTarget - desiredDist;
+    const radialSpeed = Math.sign(radialDistDiff) * Math.min(1.0, Math.abs(radialDistDiff) * 0.6);
+
+    // Componente ondulado lateral (zig-zag senoidal elegante)
+    const waveSin = Math.sin(wizardHoverTime * 1.6) * 1.25 + Math.cos(wizardHoverTime * 0.8) * 0.35;
+
+    const vx = (nx * radialSpeed + perpX * waveSin) * (WIZARD_SPEED * 0.65);
+    const vz = (nz * radialSpeed + perpZ * waveSin) * (WIZARD_SPEED * 0.65);
+
+    wizardGroup.position.x += vx * delta;
+    wizardGroup.position.z += vz * delta;
+
+    // Orientação do Sprite
+    if (vx > 0.04) {
+      wizardFacingRight = true;
+    } else if (vx < -0.04) {
+      wizardFacingRight = false;
+    }
+    wizardMesh.scale.x = wizardFacingRight ? -1 : 1;
+
+    // Z-sorting 2.5D
+    wizardMesh.renderOrder = BASE_SORT_ORDER + Math.round(wizardGroup.position.z * 100) + 12;
+
+    // 4. Ciclo de Animação de Poses (A > B > A > B > A > B > C > C > D > C > E > E > C > C > C > A > A > B > A)
+    wizardAnimTimer += delta;
+    if (wizardAnimTimer >= WIZARD_FRAME_TIME) {
+      wizardAnimTimer = 0.0;
+      wizardAnimIndex = (wizardAnimIndex + 1) % WIZARD_ANIM_SEQUENCE.length;
+      const poseKey = WIZARD_ANIM_SEQUENCE[wizardAnimIndex];
+      const tex = wizardTextures[poseKey];
+      if (tex && wizardMesh.material.map !== tex) {
+        wizardMesh.material.map = tex;
+        wizardMesh.material.needsUpdate = true;
+      }
+    }
+  }
+
+  // 6. Variáveis e Física do Jogador
   const velocity = new THREE.Vector3();
   const inputVector = new THREE.Vector2();
   let targetPosition = null;
@@ -1973,6 +2199,7 @@ DIRETRIZES:
     updatePlayer(delta);
     updateMobs(delta);
     if (typeof updateNpc === 'function') updateNpc(delta);
+    if (typeof updateWizard === 'function') updateWizard(delta);
     updateParticles(delta);
     updateCamera(delta);
 
