@@ -1670,8 +1670,8 @@ DIRETRIZES:
         wizardState = 'invisible';
         wizardCurrentOpacity = 0.0;
         wizardGroup.visible = false;
-        // Intervalo invisível: 8 a 16 segundos
-        wizardInvisibleTimer = 8.0 + Math.random() * 8.0;
+        // Intervalo invisível: aumentado em 3x (30 a 60 segundos de ausência)
+        wizardInvisibleTimer = 30.0 + Math.random() * 30.0;
         return;
       }
     }
@@ -1686,7 +1686,7 @@ DIRETRIZES:
     wizardShadowMat.opacity = wizardCurrentOpacity * 0.28 * (1.0 - bobY * 0.3);
     wizardMat.opacity = wizardCurrentOpacity;
 
-    // 3. Sistema Multi-Modo de Movimentação Aberta pelo Mapa
+    // 3. Sistema Multi-Modo de Movimentação Aberta pelo Mapa (Velocidade Serena e Suave)
     navModeTimer += delta;
     if (navModeTimer >= navModeDuration) {
       pickNewNavMode();
@@ -1710,21 +1710,21 @@ DIRETRIZES:
         const perpX = -nz;
         const perpZ = nx;
 
-        // Voo livre ondulado com velocidade de cruzeiro de ~2.1 un/s
-        const wave = Math.sin(wizardHoverTime * 1.8) * 0.85;
-        const speed = 2.1;
-        vx = (nx * 1.0 + perpX * wave) * speed;
-        vz = (nz * 1.0 + perpZ * wave) * speed;
+        // Voo livre ondulado sereno e calmo (~1.1 un/s)
+        const wave = Math.sin(wizardHoverTime * 1.5) * 0.45;
+        const speed = 1.1;
+        vx = (nx + perpX * wave) * speed;
+        vz = (nz + perpZ * wave) * speed;
       }
     } else if (wizardNavMode === 'flyby') {
-      // MODO 2: Rasante Curioso (Flyby em Curva Ampla)
-      flybyProgress += delta * 0.35;
+      // MODO 2: Rasante Curioso (Flyby em Curva Ampla Suave)
+      flybyProgress += delta * 0.18;
       const t = flybyProgress; // de -1.0 a +1.0
       const perpX = -flybyDir.y;
       const perpZ = flybyDir.x;
 
       // Trajetória parabólica suave passando a uma distância segura (~3.8 un) do alvo
-      const forwardDist = t * 14.0;
+      const forwardDist = t * 12.0;
       const lateralDist = (1.0 - Math.min(1.0, Math.abs(t))) * 3.8 + 2.5;
 
       const targetX = flybyAnchor.x + (flybyDir.x * forwardDist) + (perpX * lateralDist);
@@ -1732,15 +1732,17 @@ DIRETRIZES:
 
       const dx = targetX - wizardGroup.position.x;
       const dz = targetZ - wizardGroup.position.z;
-      vx = dx * 2.2;
-      vz = dz * 2.2;
+      const dist = Math.hypot(dx, dz) || 0.001;
+      const speed = Math.min(1.2, dist * 0.8);
+      vx = (dx / dist) * speed;
+      vz = (dz / dist) * speed;
 
       if (t >= 1.2) {
         pickNewNavMode();
       }
     } else if (wizardNavMode === 'lemniscate') {
-      // MODO 3: Lemniscata do Infinito ∞ (Figura em 8 suave e hipnótica)
-      lemniscateAngle += delta * 0.65;
+      // MODO 3: Lemniscata do Infinito ∞ (Figura em 8 lenta e hipnótica)
+      lemniscateAngle += delta * 0.40;
       const sinT = Math.sin(lemniscateAngle);
       const cosT = Math.cos(lemniscateAngle);
       const denom = 1 + sinT * sinT;
@@ -1751,19 +1753,31 @@ DIRETRIZES:
 
       const dx = targetX - wizardGroup.position.x;
       const dz = targetZ - wizardGroup.position.z;
-      vx = dx * 2.0;
-      vz = dz * 2.0;
+      const dist = Math.hypot(dx, dz) || 0.001;
+      const speed = Math.min(1.15, dist * 0.75);
+      vx = (dx / dist) * speed;
+      vz = (dz / dist) * speed;
     } else if (wizardNavMode === 'spiral') {
-      // MODO 4: Espiral Harmônica Flutuante (expansão e contração com variação de raio)
-      spiralAngle += delta * 0.72;
-      const r = 3.5 + Math.sin(wizardHoverTime * 0.65) * 2.2; // Raio varia de 1.3 a 5.7 unidades
+      // MODO 4: Espiral Harmônica Flutuante (expansão e contração serena)
+      spiralAngle += delta * 0.42;
+      const r = 3.5 + Math.sin(wizardHoverTime * 0.5) * 1.8;
       const targetX = spiralCenter.x + Math.cos(spiralAngle) * r;
       const targetZ = spiralCenter.z + Math.sin(spiralAngle) * r;
 
       const dx = targetX - wizardGroup.position.x;
       const dz = targetZ - wizardGroup.position.z;
-      vx = dx * 1.8;
-      vz = dz * 1.8;
+      const dist = Math.hypot(dx, dz) || 0.001;
+      const speed = Math.min(1.1, dist * 0.7);
+      vx = (dx / dist) * speed;
+      vz = (dz / dist) * speed;
+    }
+
+    // Trava global estrita: garante que o Mago NUNCA exceda velocidade serena (~1.25 un/s)
+    const vMag = Math.hypot(vx, vz);
+    const MAX_WIZARD_SPEED = 1.25;
+    if (vMag > MAX_WIZARD_SPEED) {
+      vx = (vx / vMag) * MAX_WIZARD_SPEED;
+      vz = (vz / vMag) * MAX_WIZARD_SPEED;
     }
 
     wizardGroup.position.x += vx * delta;
