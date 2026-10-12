@@ -1511,9 +1511,9 @@ DIRETRIZES:
   let wizardCurrentOpacity = 0.0;
   let wizardInvisibleTimer = 3.5; // Começa brevemente (3.5s) para o jogador testar logo; depois varia 10~20s
   let wizardActiveTimer = 0.0;
-  let wizardActiveDuration = 22.0; // 18 ~ 26s
+  let wizardActiveDuration = 10.0; // Reduzido para 8 ~ 14s (mais efêmero e ágil)
   let wizardFadeTimer = 0.0;
-  let wizardFadeDuration = 2.0;
+  let wizardFadeDuration = 1.6;
 
   // Animação de Poses
   let currentAnimLoopName = 'meditative';
@@ -1528,7 +1528,7 @@ DIRETRIZES:
   // =========================================================================
   let wizardNavMode = 'wander'; // 'wander' | 'flyby' | 'lemniscate' | 'spiral'
   let navModeTimer = 0.0;
-  let navModeDuration = 7.0;
+  let navModeDuration = 4.5;
 
   // Parâmetros do Modo Wander (Peregrinação Livre para pontos distantes)
   let wanderTarget = new THREE.Vector3(0, 0, 0);
@@ -1554,7 +1554,7 @@ DIRETRIZES:
     const available = modes.filter(m => m !== wizardNavMode);
     wizardNavMode = available[Math.floor(Math.random() * available.length)];
     navModeTimer = 0.0;
-    navModeDuration = 6.5 + Math.random() * 5.5; // Duração de 6.5 a 12s por comportamento
+    navModeDuration = 3.5 + Math.random() * 3.5; // Duração adaptada de 3.5 a 7s por comportamento
 
     const hasNpc = typeof npcPosition !== 'undefined';
     const targetEntity = (hasNpc && Math.random() < 0.5) ? npcPosition : playerGroup.position;
@@ -1618,12 +1618,12 @@ DIRETRIZES:
 
     wizardState = 'fadeIn';
     wizardFadeTimer = 0.0;
-    wizardFadeDuration = 2.0;
+    wizardFadeDuration = 1.6;
     wizardCurrentOpacity = 0.0;
     wizardGroup.visible = true;
 
-    // Duração total ativo: 18 a 26 segundos
-    wizardActiveDuration = 18.0 + Math.random() * 8.0;
+    // Duração total visível reduzida: 8 a 14 segundos (mais dinâmico e efêmero)
+    wizardActiveDuration = 8.0 + Math.random() * 6.0;
     wizardActiveTimer = 0.0;
 
     pickNewNavMode();
@@ -1644,29 +1644,34 @@ DIRETRIZES:
     } else if (wizardState === 'fadeIn') {
       wizardFadeTimer += delta;
       const progress = Math.min(1.0, wizardFadeTimer / wizardFadeDuration);
-      wizardCurrentOpacity = progress * progress * (3.0 - 2.0 * progress);
+      const ease = progress * progress * (3.0 - 2.0 * progress);
+      const spectralMod = 0.82 + Math.sin(wizardHoverTime * 2.4) * 0.18;
+      wizardCurrentOpacity = ease * spectralMod;
       if (progress >= 1.0) {
         wizardState = 'floating';
-        wizardCurrentOpacity = 1.0;
       }
     } else if (wizardState === 'floating') {
-      wizardCurrentOpacity = 1.0;
+      // Efeito espectral: oscilações orgânicas na opacidade (respiração mágica entre ~0.42 e ~0.98)
+      const spectralPulse = 0.72 + Math.sin(wizardHoverTime * 2.3) * 0.20 + Math.sin(wizardHoverTime * 0.9) * 0.12;
+      wizardCurrentOpacity = Math.max(0.40, Math.min(0.98, spectralPulse));
       wizardActiveTimer += delta;
       if (wizardActiveTimer >= wizardActiveDuration) {
         wizardState = 'fadeOut';
         wizardFadeTimer = 0.0;
-        wizardFadeDuration = 2.2;
+        wizardFadeDuration = 1.8;
       }
     } else if (wizardState === 'fadeOut') {
       wizardFadeTimer += delta;
       const progress = Math.min(1.0, wizardFadeTimer / wizardFadeDuration);
-      wizardCurrentOpacity = 1.0 - (progress * progress * (3.0 - 2.0 * progress));
+      const fadeBase = 1.0 - (progress * progress * (3.0 - 2.0 * progress));
+      const spectralMod = 0.78 + Math.sin(wizardHoverTime * 2.4) * 0.18;
+      wizardCurrentOpacity = Math.max(0.0, fadeBase * spectralMod);
       if (progress >= 1.0) {
         wizardState = 'invisible';
         wizardCurrentOpacity = 0.0;
         wizardGroup.visible = false;
-        // Intervalo invisível acordado: 10 a 20 segundos
-        wizardInvisibleTimer = 10.0 + Math.random() * 10.0;
+        // Intervalo invisível: 8 a 16 segundos
+        wizardInvisibleTimer = 8.0 + Math.random() * 8.0;
         return;
       }
     }

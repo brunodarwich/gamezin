@@ -253,9 +253,10 @@ O mapa conta com um sábio contemplativo localizado nas coordenadas **`(X: 10, Z
 O mundo conta com a presença misteriosa do **Mago Flutuante**, uma entidade mística que transita suavemente entre o visível e o invisível.
 
 ### ✨ Mecânica e Comportamento
-- **Materialização e Desaparecimento (Fade In / Fade Out):** O mago surge gradualmente com uma transição suave de opacidade (`smoothstep`), permanece ativo no mapa por **18 a 26 segundos** e se desmaterializa de forma etérea, ficando invisível por **10 a 20 segundos** antes de reaparecer em outro ponto do cenário.
+- **Materialização e Desaparecimento (Fade In / Fade Out):** O mago surge gradualmente com uma transição suave de opacidade (`smoothstep`), permanece ativo no mapa por **8 a 14 segundos** (aparição dinâmica e efêmera) e se desmaterializa de forma etérea, ficando invisível por **8 a 16 segundos** antes de reaparecer em outro ponto do cenário.
+- **Efeito Espectral de Opacidade:** Enquanto visível, sua opacidade oscila organicamente entre **~0.40 e ~0.98**, criando uma "respiração mágica" fantasmagórica onde ele se torna quase translúcido em determinados momentos e mais denso em outros, com a sombra no solo acompanhando perfeitamente a intensidade.
 - **Física de Levitação:** Flutua elevado a **`+1.25 unidades`** acima do chão, com oscilação vertical contínua (`bobbing` senoidal).
-- **Sombra Dinâmica no Solo:** Possui uma sombra elíptica projetada no chão que expande, contrai e modula sua opacidade dinamicamente conforme o mago sobe, desce ou entra em fade.
+- **Sombra Dinâmica no Solo:** Possui uma sombra elíptica projetada no chão que expande, contrai e modula sua opacidade dinamicamente conforme o mago sobe, desce ou varia sua densidade espectral.
 - **Sistema de Navegação em 4 Modos (Muito além de círculos):**
   1. **Peregrinação Livre (Wanderlust / Travessia):** O mago escolhe marcos distantes no mapa (14 a 26 unidades pelo descampado) e viaja em linha ondulatória cruzando o cenário com velocidade de cruzeiro de ~2.1 un/s.
   2. **Rasante Curioso (Flyby em Curva Ampla):** Vem de longe, corta a rota perto do Viajante ou do Mestre Velho a uma distância segura (~3.8 un) com aceleração suave e segue rumo ao horizonte.
