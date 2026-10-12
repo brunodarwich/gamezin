@@ -253,12 +253,19 @@ O mapa conta com um sábio contemplativo localizado nas coordenadas **`(X: 10, Z
 O mundo conta com a presença misteriosa do **Mago Flutuante**, uma entidade mística que transita suavemente entre o visível e o invisível.
 
 ### ✨ Mecânica e Comportamento
-- **Materialização e Desaparecimento (Fade In / Fade Out):** O mago surge gradualmente com uma transição suave de opacidade (`smoothstep`), permanece ativo no mapa por **15 a 25 segundos** e se desmaterializa de forma etérea, ficando invisível por **10 a 20 segundos** antes de reaparecer em outro ponto do cenário.
-- **Física de Levitação:** Flutua elevado a **`+1.25 unidades`** acima do chão, com oscilação vertical suave (`bobbing` senoidal).
+- **Materialização e Desaparecimento (Fade In / Fade Out):** O mago surge gradualmente com uma transição suave de opacidade (`smoothstep`), permanece ativo no mapa por **18 a 26 segundos** e se desmaterializa de forma etérea, ficando invisível por **10 a 20 segundos** antes de reaparecer em outro ponto do cenário.
+- **Física de Levitação:** Flutua elevado a **`+1.25 unidades`** acima do chão, com oscilação vertical contínua (`bobbing` senoidal).
 - **Sombra Dinâmica no Solo:** Possui uma sombra elíptica projetada no chão que expande, contrai e modula sua opacidade dinamicamente conforme o mago sobe, desce ou entra em fade.
-- **Navegação Ondulada em Zig-Zag:** Percorre o mapa com movimentos ondulatórios sutis, rondando suavemente em torno do Viajante e do Mestre Velho a uma distância confortável de **3 a 5 unidades**, sem colidir.
-- **Loop de Animação de 19 Poses:** Executa continuamente o ciclo ritualístico a ~0.16s por passo:
-  $$A \to B \to A \to B \to A \to B \to C \to C \to D \to C \to E \to E \to C \to C \to C \to A \to A \to B \to A$$
+- **Sistema de Navegação em 4 Modos (Muito além de círculos):**
+  1. **Peregrinação Livre (Wanderlust / Travessia):** O mago escolhe marcos distantes no mapa (14 a 26 unidades pelo descampado) e viaja em linha ondulatória cruzando o cenário com velocidade de cruzeiro de ~2.1 un/s.
+  2. **Rasante Curioso (Flyby em Curva Ampla):** Vem de longe, corta a rota perto do Viajante ou do Mestre Velho a uma distância segura (~3.8 un) com aceleração suave e segue rumo ao horizonte.
+  3. **Lemniscata do Infinito ($\infty$):** Trajetória tridimensional harmônica no formato da figura 8 / símbolo do infinito, com aceleração suave nas curvas e cruzamento central.
+  4. **Espiral Harmônica Flutuante:** Trajetória em espiral que se expande e se contrai com variações contínuas de altitude.
+- **4 Loops de Poses Temáticos (Derivados do Modelo Base):**
+  1. *Meditativo Clássico (19 poses):* `A > B > A > B > A > B > C > C > D > C > E > E > C > C > C > A > A > B > A` (~0.16s/frame).
+  2. *Canalização Arcana (20 poses):* `A > B > C > D > C > D > E > E > E > D > C > D > E > E > C > C > B > A > B > A` (~0.16s/frame).
+  3. *Voo Espectral Rápido (16 poses):* `A > A > B > A > B > B > A > B > C > C > D > C > B > A > B > A` (~0.13s/frame).
+  4. *Revelação & Êxtase (18 poses):* `A > B > A > C > C > D > D > E > E > E > E > D > D > C > C > A > B > A` (~0.15s/frame).
 
 ---
 

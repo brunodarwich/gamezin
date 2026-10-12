@@ -1425,17 +1425,38 @@ DIRETRIZES:
   const WIZARD_HEIGHT = 2.0;
   const WIZARD_WIDTH = 2.0;
   const WIZARD_BASE_ELEVATION = 1.25; // Levitação visivelmente acima do chão
-  const WIZARD_SPEED = 1.5;           // Velocidade serena e contemplativa
-  const WIZARD_FRAME_TIME = 0.16;     // Cadência de troca dos quadros de pose (~3s ciclo total)
 
-  // Sequência do ciclo exato de 19 poses especificado:
-  // A > B > A > B > A > B > C > C > D > C > E > E > C > C > C > A > A > B > A
-  const WIZARD_ANIM_SEQUENCE = [
-    'a', 'b', 'a', 'b', 'a', 'b',
-    'c', 'c', 'd', 'c', 'e', 'e',
-    'c', 'c', 'c',
-    'a', 'a', 'b', 'a'
-  ];
+  // =========================================================================
+  // 4 Loops de Poses Temáticos Derivados do Modelo Original do Usuário
+  // =========================================================================
+  const WIZARD_ANIM_LOOPS = {
+    // 1. Modelo Original do Usuário (Flutuação Meditativa - 19 passos)
+    meditative: [
+      'a', 'b', 'a', 'b', 'a', 'b',
+      'c', 'c', 'd', 'c', 'e', 'e',
+      'c', 'c', 'c',
+      'a', 'a', 'b', 'a'
+    ],
+    // 2. Canalização Arcana (Gesticulação Mística C/D/E - 20 passos)
+    arcane: [
+      'a', 'b', 'c', 'd', 'c', 'd',
+      'e', 'e', 'e', 'd', 'c', 'd',
+      'e', 'e', 'c', 'c', 'b', 'a',
+      'b', 'a'
+    ],
+    // 3. Voo Espectral Rápido (Ritmo Ágil com A e B - 16 passos)
+    spectralFlight: [
+      'a', 'a', 'b', 'a', 'b', 'b',
+      'a', 'b', 'c', 'c', 'd', 'c',
+      'b', 'a', 'b', 'a'
+    ],
+    // 4. Revelação & Êxtase (Progressão e Abertura Cósmica - 18 passos)
+    revelation: [
+      'a', 'b', 'a', 'c', 'c', 'd',
+      'd', 'e', 'e', 'e', 'e', 'd',
+      'd', 'c', 'c', 'a', 'b', 'a'
+    ]
+  };
 
   const wizardGroup = new THREE.Group();
   wizardGroup.position.set(0, 0, 0);
@@ -1485,32 +1506,110 @@ DIRETRIZES:
     });
   });
 
-  // Estado e Temporizadores do Mago
+  // Estado e Temporizadores de Presença
   let wizardState = 'invisible'; // 'invisible' | 'fadeIn' | 'floating' | 'fadeOut'
   let wizardCurrentOpacity = 0.0;
-  let wizardInvisibleTimer = 3.5; // Começa brevemente (3.5s) para o jogador ver logo ao testar; depois varia 10~20s
+  let wizardInvisibleTimer = 3.5; // Começa brevemente (3.5s) para o jogador testar logo; depois varia 10~20s
   let wizardActiveTimer = 0.0;
-  let wizardActiveDuration = 18.0; // 15 ~ 25s
+  let wizardActiveDuration = 22.0; // 18 ~ 26s
   let wizardFadeTimer = 0.0;
   let wizardFadeDuration = 2.0;
 
-  let wizardHoverTime = 0.0;
+  // Animação de Poses
+  let currentAnimLoopName = 'meditative';
   let wizardAnimTimer = 0.0;
   let wizardAnimIndex = 0;
+  let wizardFrameDuration = 0.16;
   let wizardFacingRight = false;
+  let wizardHoverTime = 0.0;
 
-  let wizardTargetMode = 'player'; // Alterna entre 'player' e 'npc'
-  let wizardTargetSwitchTimer = 6.0;
+  // =========================================================================
+  // Sistema de Navegação em 4 Modos (Peregrinação, Flyby, Lemniscata ∞, Espiral)
+  // =========================================================================
+  let wizardNavMode = 'wander'; // 'wander' | 'flyby' | 'lemniscate' | 'spiral'
+  let navModeTimer = 0.0;
+  let navModeDuration = 7.0;
+
+  // Parâmetros do Modo Wander (Peregrinação Livre para pontos distantes)
+  let wanderTarget = new THREE.Vector3(0, 0, 0);
+
+  // Parâmetros do Modo Flyby (Rasante cortando o caminho e partindo)
+  let flybyAnchor = new THREE.Vector3(0, 0, 0);
+  let flybyDir = new THREE.Vector2(1, 0);
+  let flybyProgress = 0.0;
+
+  // Parâmetros do Modo Lemniscata ∞ (Figura em oito hipnótica)
+  let lemniscateCenter = new THREE.Vector3(0, 0, 0);
+  let lemniscateAngle = 0.0;
+  let lemniscateRadiusA = 5.2;
+  let lemniscateRadiusB = 4.0;
+
+  // Parâmetros do Modo Espiral Harmônica
+  let spiralCenter = new THREE.Vector3(0, 0, 0);
+  let spiralAngle = 0.0;
+
+  function pickNewNavMode() {
+    const modes = ['wander', 'flyby', 'lemniscate', 'spiral'];
+    // Sorteia um novo modo diferente do atual
+    const available = modes.filter(m => m !== wizardNavMode);
+    wizardNavMode = available[Math.floor(Math.random() * available.length)];
+    navModeTimer = 0.0;
+    navModeDuration = 6.5 + Math.random() * 5.5; // Duração de 6.5 a 12s por comportamento
+
+    const hasNpc = typeof npcPosition !== 'undefined';
+    const targetEntity = (hasNpc && Math.random() < 0.5) ? npcPosition : playerGroup.position;
+
+    if (wizardNavMode === 'wander') {
+      // Peregrinação livre: escolhe um ponto distante (14 a 26 unidades) pelo descampado
+      const roamAngle = Math.random() * Math.PI * 2;
+      const roamDist = 14.0 + Math.random() * 12.0;
+      wanderTarget.set(
+        wizardGroup.position.x + Math.cos(roamAngle) * roamDist,
+        0,
+        wizardGroup.position.z + Math.sin(roamAngle) * roamDist
+      );
+      // Vincula ao loop de voo espectral ágil
+      currentAnimLoopName = 'spectralFlight';
+      wizardFrameDuration = 0.13;
+    } else if (wizardNavMode === 'flyby') {
+      // Rasante curioso: aproxima-se de forma dinâmica da entidade e segue rumo ao horizonte
+      flybyAnchor.copy(targetEntity);
+      const approachAngle = Math.random() * Math.PI * 2;
+      flybyDir.set(Math.cos(approachAngle), Math.sin(approachAngle));
+      flybyProgress = -1.0; // Inicia longe antes do ponto de passagem
+      currentAnimLoopName = 'revelation';
+      wizardFrameDuration = 0.15;
+    } else if (wizardNavMode === 'lemniscate') {
+      // Trajetória do Infinito ∞ em torno de um ponto no mundo
+      const offsetAngle = Math.random() * Math.PI * 2;
+      const offsetDist = 4.0 + Math.random() * 3.0;
+      lemniscateCenter.set(
+        targetEntity.x + Math.cos(offsetAngle) * offsetDist,
+        0,
+        targetEntity.z + Math.sin(offsetAngle) * offsetDist
+      );
+      lemniscateAngle = Math.random() * Math.PI * 2;
+      lemniscateRadiusA = 4.5 + Math.random() * 2.0;
+      lemniscateRadiusB = 3.5 + Math.random() * 1.5;
+      currentAnimLoopName = 'meditative';
+      wizardFrameDuration = 0.16;
+    } else if (wizardNavMode === 'spiral') {
+      // Espiral harmônica que se expande e se contrai
+      spiralCenter.copy(targetEntity);
+      spiralAngle = Math.random() * Math.PI * 2;
+      currentAnimLoopName = 'arcane';
+      wizardFrameDuration = 0.16;
+    }
+  }
 
   function respawnWizard() {
-    // Escolhe ponto de ancoragem próximo ao jogador ou ao mestre velho
+    // Escolhe ponto de ancoragem próximo ao jogador ou ao mestre velho para surgir
     const hasNpc = typeof npcPosition !== 'undefined';
-    wizardTargetMode = (hasNpc && Math.random() < 0.5) ? 'npc' : 'player';
-    const anchor = (wizardTargetMode === 'npc' && hasNpc) ? npcPosition : playerGroup.position;
+    const anchor = (hasNpc && Math.random() < 0.5) ? npcPosition : playerGroup.position;
 
-    // Sorteia posição em raio suave de 5.0 a 7.5 unidades
+    // Surge a uma distância inicial elegante (7 a 11 unidades de distância)
     const angle = Math.random() * Math.PI * 2;
-    const dist = 5.0 + Math.random() * 2.5;
+    const dist = 7.0 + Math.random() * 4.0;
     wizardGroup.position.set(
       anchor.x + Math.cos(angle) * dist,
       0,
@@ -1523,10 +1622,11 @@ DIRETRIZES:
     wizardCurrentOpacity = 0.0;
     wizardGroup.visible = true;
 
-    // Define duração de permanência ativa entre 15 e 25 segundos
-    wizardActiveDuration = 15.0 + Math.random() * 10.0;
+    // Duração total ativo: 18 a 26 segundos
+    wizardActiveDuration = 18.0 + Math.random() * 8.0;
     wizardActiveTimer = 0.0;
-    wizardTargetSwitchTimer = 5.0 + Math.random() * 4.0;
+
+    pickNewNavMode();
   }
 
   function updateWizard(delta) {
@@ -1544,7 +1644,6 @@ DIRETRIZES:
     } else if (wizardState === 'fadeIn') {
       wizardFadeTimer += delta;
       const progress = Math.min(1.0, wizardFadeTimer / wizardFadeDuration);
-      // Easing suave (smoothstep)
       wizardCurrentOpacity = progress * progress * (3.0 - 2.0 * progress);
       if (progress >= 1.0) {
         wizardState = 'floating';
@@ -1566,62 +1665,109 @@ DIRETRIZES:
         wizardState = 'invisible';
         wizardCurrentOpacity = 0.0;
         wizardGroup.visible = false;
-        // Intervalo moderado acordado: 10 a 20 segundos invisível
+        // Intervalo invisível acordado: 10 a 20 segundos
         wizardInvisibleTimer = 10.0 + Math.random() * 10.0;
         return;
       }
     }
 
     // 2. Levitação com Ondulação Vertical e Sombra Pulsante
-    const bobY = Math.sin(wizardHoverTime * 2.2) * 0.16 + Math.cos(wizardHoverTime * 1.1) * 0.06;
+    const bobY = Math.sin(wizardHoverTime * 2.3) * 0.17 + Math.cos(wizardHoverTime * 1.15) * 0.07;
     wizardMesh.position.y = (WIZARD_HEIGHT / 2) + WIZARD_BASE_ELEVATION + bobY;
 
     // Sombra no solo: escala e opacidade adaptam-se dinamicamente à altura e ao fade
-    const shadowScale = 1.0 - (bobY / 0.16) * 0.18;
+    const shadowScale = 1.0 - (bobY / 0.17) * 0.18;
     wizardShadowMesh.scale.set(1.5 * shadowScale, 0.85 * shadowScale, 1.0);
     wizardShadowMat.opacity = wizardCurrentOpacity * 0.28 * (1.0 - bobY * 0.3);
     wizardMat.opacity = wizardCurrentOpacity;
 
-    // 3. IA de Navegação em Zig-Zag Suave / Ondulado
-    wizardTargetSwitchTimer -= delta;
-    if (wizardTargetSwitchTimer <= 0) {
-      const hasNpc = typeof npcPosition !== 'undefined';
-      wizardTargetMode = (wizardTargetMode === 'player' && hasNpc) ? 'npc' : 'player';
-      wizardTargetSwitchTimer = 6.0 + Math.random() * 5.0;
+    // 3. Sistema Multi-Modo de Movimentação Aberta pelo Mapa
+    navModeTimer += delta;
+    if (navModeTimer >= navModeDuration) {
+      pickNewNavMode();
     }
 
-    const currentAnchor = (wizardTargetMode === 'npc' && typeof npcPosition !== 'undefined')
-      ? npcPosition
-      : playerGroup.position;
+    let vx = 0;
+    let vz = 0;
 
-    const dx = currentAnchor.x - wizardGroup.position.x;
-    const dz = currentAnchor.z - wizardGroup.position.z;
-    const distToTarget = Math.hypot(dx, dz) || 0.001;
+    if (wizardNavMode === 'wander') {
+      // MODO 1: Peregrinação Livre pelo Mapa (Wanderlust)
+      const dx = wanderTarget.x - wizardGroup.position.x;
+      const dz = wanderTarget.z - wizardGroup.position.z;
+      const dist = Math.hypot(dx, dz) || 0.001;
 
-    // Distância confortável alinhada: ~3.5 a 4.5 unidades (não fica grudado nem vai embora)
-    const desiredDist = 4.0;
-    const nx = dx / distToTarget;
-    const nz = dz / distToTarget;
-    const perpX = -nz;
-    const perpZ = nx;
+      if (dist < 2.5) {
+        // Chegou perto do destino de travessia, sorteia novo modo
+        pickNewNavMode();
+      } else {
+        const nx = dx / dist;
+        const nz = dz / dist;
+        const perpX = -nz;
+        const perpZ = nx;
 
-    // Componente de aproximação/afastamento radial suave
-    const radialDistDiff = distToTarget - desiredDist;
-    const radialSpeed = Math.sign(radialDistDiff) * Math.min(1.0, Math.abs(radialDistDiff) * 0.6);
+        // Voo livre ondulado com velocidade de cruzeiro de ~2.1 un/s
+        const wave = Math.sin(wizardHoverTime * 1.8) * 0.85;
+        const speed = 2.1;
+        vx = (nx * 1.0 + perpX * wave) * speed;
+        vz = (nz * 1.0 + perpZ * wave) * speed;
+      }
+    } else if (wizardNavMode === 'flyby') {
+      // MODO 2: Rasante Curioso (Flyby em Curva Ampla)
+      flybyProgress += delta * 0.35;
+      const t = flybyProgress; // de -1.0 a +1.0
+      const perpX = -flybyDir.y;
+      const perpZ = flybyDir.x;
 
-    // Componente ondulado lateral (zig-zag senoidal elegante)
-    const waveSin = Math.sin(wizardHoverTime * 1.6) * 1.25 + Math.cos(wizardHoverTime * 0.8) * 0.35;
+      // Trajetória parabólica suave passando a uma distância segura (~3.8 un) do alvo
+      const forwardDist = t * 14.0;
+      const lateralDist = (1.0 - Math.min(1.0, Math.abs(t))) * 3.8 + 2.5;
 
-    const vx = (nx * radialSpeed + perpX * waveSin) * (WIZARD_SPEED * 0.65);
-    const vz = (nz * radialSpeed + perpZ * waveSin) * (WIZARD_SPEED * 0.65);
+      const targetX = flybyAnchor.x + (flybyDir.x * forwardDist) + (perpX * lateralDist);
+      const targetZ = flybyAnchor.z + (flybyDir.y * forwardDist) + (perpZ * lateralDist);
+
+      const dx = targetX - wizardGroup.position.x;
+      const dz = targetZ - wizardGroup.position.z;
+      vx = dx * 2.2;
+      vz = dz * 2.2;
+
+      if (t >= 1.2) {
+        pickNewNavMode();
+      }
+    } else if (wizardNavMode === 'lemniscate') {
+      // MODO 3: Lemniscata do Infinito ∞ (Figura em 8 suave e hipnótica)
+      lemniscateAngle += delta * 0.65;
+      const sinT = Math.sin(lemniscateAngle);
+      const cosT = Math.cos(lemniscateAngle);
+      const denom = 1 + sinT * sinT;
+
+      // Coordenadas da Lemniscata de Bernoulli
+      const targetX = lemniscateCenter.x + (lemniscateRadiusA * cosT) / denom;
+      const targetZ = lemniscateCenter.z + (lemniscateRadiusB * sinT * cosT) / denom;
+
+      const dx = targetX - wizardGroup.position.x;
+      const dz = targetZ - wizardGroup.position.z;
+      vx = dx * 2.0;
+      vz = dz * 2.0;
+    } else if (wizardNavMode === 'spiral') {
+      // MODO 4: Espiral Harmônica Flutuante (expansão e contração com variação de raio)
+      spiralAngle += delta * 0.72;
+      const r = 3.5 + Math.sin(wizardHoverTime * 0.65) * 2.2; // Raio varia de 1.3 a 5.7 unidades
+      const targetX = spiralCenter.x + Math.cos(spiralAngle) * r;
+      const targetZ = spiralCenter.z + Math.sin(spiralAngle) * r;
+
+      const dx = targetX - wizardGroup.position.x;
+      const dz = targetZ - wizardGroup.position.z;
+      vx = dx * 1.8;
+      vz = dz * 1.8;
+    }
 
     wizardGroup.position.x += vx * delta;
     wizardGroup.position.z += vz * delta;
 
-    // Orientação do Sprite
-    if (vx > 0.04) {
+    // Orientação visual suave do sprite
+    if (vx > 0.05) {
       wizardFacingRight = true;
-    } else if (vx < -0.04) {
+    } else if (vx < -0.05) {
       wizardFacingRight = false;
     }
     wizardMesh.scale.x = wizardFacingRight ? -1 : 1;
@@ -1629,12 +1775,13 @@ DIRETRIZES:
     // Z-sorting 2.5D
     wizardMesh.renderOrder = BASE_SORT_ORDER + Math.round(wizardGroup.position.z * 100) + 12;
 
-    // 4. Ciclo de Animação de Poses (A > B > A > B > A > B > C > C > D > C > E > E > C > C > C > A > A > B > A)
+    // 4. Animação de Poses com o Loop Dinâmico Ativo
+    const currentLoop = WIZARD_ANIM_LOOPS[currentAnimLoopName] || WIZARD_ANIM_LOOPS.meditative;
     wizardAnimTimer += delta;
-    if (wizardAnimTimer >= WIZARD_FRAME_TIME) {
+    if (wizardAnimTimer >= wizardFrameDuration) {
       wizardAnimTimer = 0.0;
-      wizardAnimIndex = (wizardAnimIndex + 1) % WIZARD_ANIM_SEQUENCE.length;
-      const poseKey = WIZARD_ANIM_SEQUENCE[wizardAnimIndex];
+      wizardAnimIndex = (wizardAnimIndex + 1) % currentLoop.length;
+      const poseKey = currentLoop[wizardAnimIndex];
       const tex = wizardTextures[poseKey];
       if (tex && wizardMesh.material.map !== tex) {
         wizardMesh.material.map = tex;
