@@ -48,6 +48,9 @@ O motor `game.js` detecta e carrega automaticamente os seguintes conjuntos de fr
 | **Vegetação (Gramas)** | `grama-a.png` a `grama-d.png` | Estático com sombra rente | 4 variantes de tufos assentados no chão; transponíveis |
 | **Obstáculos (Pedras)** | `pedra-a.png` a `pedra-c.png` | Estático com sombra rente | 3 variantes com colisão circular elástica e deslizamento suave |
 | **Árvores & Cenário** | `arvore-a.png` (1024x1024 px) | Estático com sombra de tronco | Árvore frondosa majestosa com colisão sólida no tronco, copa transponível em 2.5D e Z-sorting |
+| **Baú 3D (Textura UV)** | `bau-texture.png` (1024x1024 px) | Atlas UV de 6 faces para o modelo 3D | Textura completa para o baú articulado (tampa móvel e base com fechadura) |
+| **Maçã Coletável** | `maca.png` (256x256 px) | Pose estática vertical com folhinha | Altura: `0.45` un, inclinada a -20.6°, sombra elíptica |
+| **Player Carregando Maçã** | `player-apple-idle-a.png` a `player-apple-run-left-b.png` (6 frames) | 512x512 px, corpo inteiro com maçã nas mãos | Altura: `2.0` un, pés na base inferior, espelha animações do player |
 
 > **Nota:** Para adicionar mais frames ou variantes de ambiente, basta incluir o arquivo no array correspondente em `game.js`:
 > ```javascript
@@ -56,12 +59,67 @@ O motor `game.js` detecta e carrega automaticamente os seguintes conjuntos de fr
 >   run_right: ['player-run-right-a.png', 'player-run-right-b.png'],
 >   run_left: ['player-run-left-a.png', 'player-run-left-b.png']
 > };
+> const spriteAssetsWithApple = {
+>   idle: ['player-apple-idle-a.png', 'player-apple-idle-b.png'],
+>   run_right: ['player-apple-run-right-a.png', 'player-apple-run-right-b.png'],
+>   run_left: ['player-apple-run-left-a.png', 'player-apple-run-left-b.png']
+> };
 > const envAssets = {
 >   grass: ['grama-a.png', 'grama-b.png', 'grama-c.png', 'grama-d.png'],
 >   rock: ['pedra-a.png', 'pedra-b.png', 'pedra-c.png'],
 >   tree: ['arvore-a.png']
 > };
 > ```
+
+---
+
+## 5. Especificações para Desenhar os Novos Assets
+
+### 📦 A. Textura do Baú 3D (`bau-texture.png` — 1024x1024 px)
+O baú é um modelo 3D estilizado com proporções cartunescas. Crie uma imagem PNG de **`1024 x 1024 px`** com as seguintes áreas desenhadas:
+
+```
++-----------------------------+-----------------------------+
+|                             |                             |
+|      FRENTE DA TAMPA        |       TOPO DA TAMPA         |
+|   (0, 0 até 512, 256 px)    |  (512, 0 até 1024, 256 px)  |
+|  [Madeira curvada c/ aba]   | [Tábuas curvadas + ferragem]|
+|                             |                             |
++-----------------------------+-----------------------------+
+|                             |                             |
+|       FRENTE DA BASE        |    LATERAIS (ESQ. E DIR.)   |
+|  (0, 256 até 512, 512 px)   | (512, 256 até 1024, 512 px) |
+| [Madeira + Fecho Dourado]   |  [Madeira + Alças de ferro] |
+|                             |                             |
++-----------------------------+-----------------------------+
+|                             |                             |
+|     TRASEIRA DO BAÚ         |      INTERIOR DO BAÚ        |
+|  (0, 512 até 512, 768 px)   | (512, 512 até 1024, 768 px) |
+|   [Dobradiças de ferro]     |   [Forro aveludado escuro]  |
+|                             |                             |
++-----------------------------+-----------------------------+
+|                             |                             |
+|     FUNDO DA BASE (CHÃO)    |      RESERVA / DETALHES     |
+|  (0, 768 até 512, 1024 px)  | (512, 768 até 1024, 1024 px)|
+|                             |                             |
++-----------------------------+-----------------------------+
+```
+
+### 🍎 B. Maçã Coletável (`maca.png` — 256x256 px)
+- **Formato:** PNG com transparência (RGBA).
+- **Desenho:** Maçã vermelha suculenta, cabinho marrom e folha verde brilhante.
+- **Estilo:** Contorno marcante preto/marrom escuro (estilo Paper Mario).
+- **Tamanho:** Ocupando cerca de 80% da área do quadro de 256x256 px.
+
+### 🚶 C. Sprites do Viajante Segurando Maçã (6 Arquivos — 512x512 px cada)
+Para que a troca de animação fique perfeita, decalque a silhueta dos sprites atuais mantendo a posição dos pés e a cabeça:
+1. **`player-apple-idle-a.png`**: Postura de repouso (baseada em `player.png`), com os dois braços segurando a maçã na frente do tórax.
+2. **`player-apple-idle-b.png`**: Postura de respiração (baseada em `player-b.png`), peito levemente expandido / maçã subindo ~4px.
+3. **`player-apple-run-right-a.png`**: Passo 1 correndo para direita (baseado em `player-run-right-a.png`), segurando a maçã firmemente.
+4. **`player-apple-run-right-b.png`**: Passo 2 correndo para direita (baseado em `player-run-right-b.png`).
+5. **`player-apple-run-left-a.png`**: Passo 1 correndo para esquerda (baseado em `player-run-left-a.png`).
+6. **`player-apple-run-left-b.png`**: Passo 2 correndo para esquerda (baseado em `player-run-left-b.png`).
+
 
 ---
 

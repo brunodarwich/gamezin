@@ -7,7 +7,7 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <title>Gamezin - 2.5D Isométrico Suave</title>
-  <link rel="stylesheet" href="style.css?v=20261012d">
+  <link rel="stylesheet" href="style.css?v=20261012_clean_white">
 </head>
 <body>
   <!-- Canvas do Jogo -->
@@ -22,8 +22,21 @@
 
   <!-- HUD simples de coordenadas e instruções -->
   <div id="hud">
-    <div id="posDisplay">X: 0 | Y: 0</div>
-    <div id="controlsHint">Mover: WASD/Setas/Clique | Zoom: + / - ou Scroll</div>
+    <div id="hudLeftGroup">
+      <div id="posDisplay">X: 0 | Y: 0</div>
+      <div id="controlsHint">Mover: WASD/Setas/Clique | Zoom: + / - ou Scroll</div>
+    </div>
+    <!-- Slot Central: Item Carregado nas Mãos -->
+    <div id="hudCenterGroup">
+      <div id="carrySlot" class="carry-slot carry-slot-empty" title="Mãos: Só é possível carregar 1 item por vez">
+        <span class="carry-slot-icon">🍎</span>
+        <span id="carrySlotLabel" class="carry-slot-label">Mãos Vazias</span>
+      </div>
+      <div id="chestHudBadge" class="chest-hud-badge" title="Maçãs armazenadas no baú">
+        <span class="chest-icon">📦</span>
+        <span id="chestCountDisplay">0/15</span>
+      </div>
+    </div>
     <!-- Controles da Direita: Contador Discreto de Visitas e Zoom -->
     <div id="hudRightGroup">
       <div id="visitorBadge" class="visitor-badge" title="Visualizações • Clique para ver por país">
@@ -42,6 +55,9 @@
       </div>
     </div>
   </div>
+
+  <!-- Toast de Avisos e Notificações Flutuantes -->
+  <div id="gameToast" class="game-toast toast-hidden" role="status" aria-live="polite"></div>
 
   <!-- Modal Glassmorphism de Estatísticas de Visitantes por País -->
   <div id="visitorModal" class="visitor-modal-backdrop visitor-ui-hidden" role="dialog" aria-modal="true" aria-labelledby="visitorModalTitle">
@@ -79,11 +95,11 @@
     <div class="player-bubble-arrow"></div>
   </div>
 
-  <!-- Botão Flutuante de Interação com NPC -->
+  <!-- Botão Flutuante de Interação Contextual (NPC, Baú, Maçã) -->
   <div id="npcPrompt" class="npc-ui-hidden">
     <button id="btnNpcInteract">
       <span class="prompt-key">E</span>
-      <span class="prompt-label">Conversar</span>
+      <span class="prompt-label" id="interactLabel">Conversar</span>
     </button>
   </div>
 
@@ -108,7 +124,7 @@
   </div>
 
   <script src="three.min.js"></script>
-  <script src="game.js?v=20261012d"></script>
-  <script src="visitor-counter.js?v=20261012d"></script>
+  <script src="game.js?v=20261012_idle_apple_v2"></script>
+  <script src="visitor-counter.js?v=20261012_idle_apple_v2"></script>
 </body>
 </html>

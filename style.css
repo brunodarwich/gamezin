@@ -11,7 +11,7 @@ html, body {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background-color: #fcfbf8; /* Branco quente orgânico em harmonia com a névoa e o horizonte infinito */
+  background-color: #ffffff; /* Branco puro e limpo */
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   touch-action: none; /* Previne scroll e zoom acidental em mobile */
 }
@@ -77,19 +77,128 @@ html, body {
   font-weight: 500;
 }
 
+#hudLeftGroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 #posDisplay {
-  background: rgba(240, 240, 240, 0.8);
+  background: rgba(240, 240, 240, 0.88);
   padding: 6px 12px;
   border-radius: 20px;
   border: 1px solid #e0e0e0;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
 }
 
 #controlsHint {
-  background: rgba(240, 240, 240, 0.8);
+  background: rgba(240, 240, 240, 0.88);
   padding: 6px 12px;
   border-radius: 20px;
   border: 1px solid #e0e0e0;
   font-size: 12px;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+/* Grupo Central do HUD: Item em Mãos e Baú */
+#hudCenterGroup {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  pointer-events: auto;
+}
+
+.carry-slot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1.5px solid #d4d4d8;
+  border-radius: 20px;
+  padding: 5px 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #3f3f46;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: all 0.25s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+}
+
+.carry-slot-empty {
+  opacity: 0.65;
+  background: rgba(245, 245, 245, 0.82);
+  border-color: #e4e4e7;
+  color: #71717a;
+}
+
+.carry-slot-filled {
+  opacity: 1;
+  background: rgba(254, 242, 242, 0.95);
+  border-color: #f87171;
+  color: #991b1b;
+  transform: scale(1.04);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.18);
+  animation: carrySlotPulse 2s ease-in-out infinite;
+}
+
+@keyframes carrySlotPulse {
+  0%, 100% { transform: scale(1.04); }
+  50% { transform: scale(1.08); }
+}
+
+.carry-slot-icon {
+  font-size: 15px;
+  line-height: 1;
+}
+
+.chest-hud-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(254, 252, 247, 0.92);
+  border: 1.5px solid #d6cfbf;
+  border-radius: 20px;
+  padding: 5px 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #5c4b37;
+  box-shadow: 0 2px 8px rgba(92, 75, 55, 0.08);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.chest-icon {
+  font-size: 14px;
+}
+
+/* Toast Notificação Cartunizado */
+.game-toast {
+  position: absolute;
+  top: 68px;
+  left: 50%;
+  transform: translateX(-50%) translateY(0);
+  background: rgba(30, 35, 42, 0.92);
+  color: #ffffff;
+  padding: 8px 18px;
+  border-radius: 24px;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.2px;
+  z-index: 50;
+  pointer-events: none;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: opacity 0.25s ease, transform 0.25s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+}
+
+.toast-hidden {
+  opacity: 0;
+  transform: translateX(-50%) translateY(-10px);
+  pointer-events: none;
 }
 
 /* Grupo de Controles da Direita no HUD */

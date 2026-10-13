@@ -22,8 +22,8 @@
 
   // Three.js Core
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0xfcfbf8); // Branco quente orgânico
-  scene.fog = new THREE.FogExp2(0xfcfbf8, 0.018); // Névoa volumétrica suave
+  scene.background = new THREE.Color(0xffffff); // Branco puro e limpo
+  scene.fog = null; // Sem névoa acinzentada, mantendo o visual limpo e nítido
 
   const aspect = window.innerWidth / window.innerHeight;
   const camera = new THREE.PerspectiveCamera(40, aspect, 0.1, 200);
@@ -39,57 +39,26 @@
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 
-  // Iluminação Suave
-  const ambientLight = new THREE.AmbientLight(0xffffff, 0.92);
+  // Iluminação Limpa e Balanceada
+  const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
   scene.add(ambientLight);
 
-  const dirLight = new THREE.DirectionalLight(0xfff7ed, 0.55);
+  const dirLight = new THREE.DirectionalLight(0xffffff, 0.45);
   dirLight.position.set(6, 14, 8);
   scene.add(dirLight);
 
-  // 1. Chão Infinito com Horizonte Imperceptível
+  // 1. Chão Infinito Branco Puro
   const groundGeo = new THREE.PlaneGeometry(350, 350);
   const groundMat = new THREE.MeshBasicMaterial({
-    color: 0xfcfbf8,
+    color: 0xffffff,
     depthWrite: true
   });
   const groundPlane = new THREE.Mesh(groundGeo, groundMat);
   groundPlane.rotation.x = -Math.PI / 2;
   scene.add(groundPlane);
 
-  // 2. Marcas Sutis no Chão (Referência tátil de movimento e escala 3D)
-  function createGroundMarksTexture() {
-    const cvs = document.createElement('canvas');
-    cvs.width = 256;
-    cvs.height = 256;
-    const ctx = cvs.getContext('2d');
-    ctx.clearRect(0, 0, 256, 256);
-    ctx.strokeStyle = 'rgba(215, 208, 195, 0.38)';
-    ctx.lineWidth = 1.8;
-    ctx.beginPath();
-    ctx.moveTo(128 - 7, 128);
-    ctx.lineTo(128 + 7, 128);
-    ctx.moveTo(128, 128 - 7);
-    ctx.lineTo(128, 128 + 7);
-    ctx.stroke();
-
-    const tex = new THREE.CanvasTexture(cvs);
-    tex.wrapS = THREE.RepeatWrapping;
-    tex.wrapT = THREE.RepeatWrapping;
-    tex.repeat.set(70, 70);
-    return tex;
-  }
-
-  const marksPlane = new THREE.Mesh(
-    new THREE.PlaneGeometry(350, 350),
-    new THREE.MeshBasicMaterial({
-      map: createGroundMarksTexture(),
-      transparent: true,
-      depthWrite: false
-    })
-  );
-  marksPlane.rotation.x = -Math.PI / 2;
-  marksPlane.position.y = 0.005;
+  // 2. Marcas no chão (desativadas para manter a tela 100% limpa e branca)
+  const marksPlane = new THREE.Group();
   scene.add(marksPlane);
 
   // 3. Texturas Procedurais via Canvas 2D
@@ -182,6 +151,166 @@
     return new THREE.CanvasTexture(cvs);
   }
 
+  // Textura Procedural de Maçã Vermelha Suave (Estilo Paper Mario)
+  function createAppleTexture() {
+    const cvs = document.createElement('canvas');
+    cvs.width = 256;
+    cvs.height = 256;
+    const ctx = cvs.getContext('2d');
+
+    // Contorno e silhueta exterior escurecida
+    ctx.beginPath();
+    ctx.arc(128, 144, 76, 0, Math.PI * 2);
+    ctx.fillStyle = '#5c1414';
+    ctx.fill();
+
+    // Gradiente vermelho vivo com brilho volumétrico
+    const grad = ctx.createRadialGradient(104, 116, 10, 128, 144, 82);
+    grad.addColorStop(0, '#f87171');
+    grad.addColorStop(0.35, '#dc2626');
+    grad.addColorStop(0.85, '#991b1b');
+    grad.addColorStop(1, '#7f1d1d');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(128, 144, 72, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Brilho especular sutil
+    ctx.beginPath();
+    ctx.ellipse(98, 115, 20, 10, -0.6, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.48)';
+    ctx.fill();
+
+    // Cabinho curvado de madeira
+    ctx.strokeStyle = '#5c3a21';
+    ctx.lineWidth = 7;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(128, 74);
+    ctx.quadraticCurveTo(134, 48, 146, 40);
+    ctx.stroke();
+
+    // Folhinha verde graciosa
+    ctx.fillStyle = '#22c55e';
+    ctx.beginPath();
+    ctx.ellipse(146, 52, 17, 9, 0.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#15803d';
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+
+    return new THREE.CanvasTexture(cvs);
+  }
+
+  // Textura Procedural UV do Baú (Atlas 1024x1024)
+  function createProceduralChestTexture() {
+    const cvs = document.createElement('canvas');
+    cvs.width = 1024;
+    cvs.height = 1024;
+    const ctx = cvs.getContext('2d');
+
+    // Fundo geral cor de madeira nobre
+    ctx.fillStyle = '#6b4c2e';
+    ctx.fillRect(0, 0, 1024, 1024);
+
+    function drawWoodPanel(x, y, w, h) {
+      const grad = ctx.createLinearGradient(x, y, x + w, y + h);
+      grad.addColorStop(0, '#7c5735');
+      grad.addColorStop(0.5, '#634326');
+      grad.addColorStop(1, '#4d3319');
+      ctx.fillStyle = grad;
+      ctx.fillRect(x, y, w, h);
+
+      // Veios da madeira
+      ctx.strokeStyle = 'rgba(35, 22, 10, 0.24)';
+      ctx.lineWidth = 2;
+      for (let i = 0; i < 6; i++) {
+        const lineY = y + 8 + i * (h / 6);
+        ctx.beginPath();
+        ctx.moveTo(x, lineY);
+        ctx.lineTo(x + w, lineY);
+        ctx.stroke();
+      }
+
+      // Moldura de ferro escuro de reforço
+      ctx.strokeStyle = '#2b2622';
+      ctx.lineWidth = 14;
+      ctx.strokeRect(x + 7, y + 7, w - 14, h - 14);
+
+      // Faixas metálicas verticais
+      ctx.fillStyle = '#2b2622';
+      ctx.fillRect(x + w * 0.28, y, 18, h);
+      ctx.fillRect(x + w * 0.72, y, 18, h);
+
+      // Rebites dourados reluzentes
+      ctx.fillStyle = '#d4af37';
+      [y + 18, y + h * 0.5, y + h - 18].forEach(ry => {
+        ctx.beginPath();
+        ctx.arc(x + w * 0.28 + 9, ry, 4, 0, Math.PI * 2);
+        ctx.arc(x + w * 0.72 + 9, ry, 4, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    }
+
+    // 1. Frente da Tampa (0, 0 a 512, 256)
+    drawWoodPanel(0, 0, 512, 256);
+
+    // 2. Topo da Tampa (512, 0 a 1024, 256)
+    drawWoodPanel(512, 0, 512, 256);
+
+    // 3. Frente da Base com Fecho Dourado (0, 256 a 512, 512)
+    drawWoodPanel(0, 256, 512, 256);
+    // Fechadura central em metal dourado
+    ctx.fillStyle = '#d4af37';
+    ctx.beginPath();
+    ctx.roundRect(226, 268, 60, 68, [6, 6, 12, 12]);
+    ctx.fill();
+    ctx.strokeStyle = '#8c701e';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+    // Buraco de fechadura
+    ctx.fillStyle = '#1c150c';
+    ctx.beginPath();
+    ctx.arc(256, 296, 7, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(253, 296);
+    ctx.lineTo(259, 296);
+    ctx.lineTo(261, 318);
+    ctx.lineTo(251, 318);
+    ctx.closePath();
+    ctx.fill();
+
+    // 4. Laterais (512, 256 a 1024, 512)
+    drawWoodPanel(512, 256, 512, 256);
+    ctx.strokeStyle = '#1f1b18';
+    ctx.lineWidth = 8;
+    ctx.strokeRect(512 + 180, 256 + 110, 150, 45);
+
+    // 5. Traseira com Dobradiças (0, 512 a 512, 768)
+    drawWoodPanel(0, 512, 512, 256);
+    ctx.fillStyle = '#1f1b18';
+    ctx.fillRect(110, 512 + 15, 45, 80);
+    ctx.fillRect(360, 512 + 15, 45, 80);
+
+    // 6. Interior Aveludado Tinto (512, 512 a 1024, 768)
+    const velvetGrad = ctx.createLinearGradient(512, 512, 1024, 768);
+    velvetGrad.addColorStop(0, '#581c24');
+    velvetGrad.addColorStop(0.5, '#7f1d1d');
+    velvetGrad.addColorStop(1, '#450a0a');
+    ctx.fillStyle = velvetGrad;
+    ctx.fillRect(512, 512, 512, 256);
+    ctx.strokeStyle = '#2d0606';
+    ctx.lineWidth = 6;
+    ctx.strokeRect(518, 518, 500, 244);
+
+    // 7. Fundo (0, 768 a 512, 1024)
+    ctx.fillStyle = '#3a2412';
+    ctx.fillRect(0, 768, 512, 256);
+
+    return new THREE.CanvasTexture(cvs);
+  }
+
   // 4. Grupo do Jogador & Billboard Inclinado
   const playerGroup = new THREE.Group();
   playerGroup.position.set(0, 0, 0);
@@ -214,6 +343,21 @@
   playerMesh.rotation.x = -0.36; // Inclinação de contra-balanço exata (-20.6°)
   playerMesh.renderOrder = 2;
   playerGroup.add(playerMesh);
+
+  // Mesh de Maçã de Fallback nas mãos do viajante (visível enquanto não desenhar os 6 sprites)
+  const appleInHandsGeo = new THREE.PlaneGeometry(0.58, 0.58);
+  const appleInHandsMat = new THREE.MeshBasicMaterial({
+    transparent: true,
+    alphaTest: 0.02,
+    side: THREE.DoubleSide,
+    depthWrite: false
+  });
+  const appleInHandsMesh = new THREE.Mesh(appleInHandsGeo, appleInHandsMat);
+  appleInHandsMesh.position.set(0.12, BASE_Y * 0.95, 0.16);
+  appleInHandsMesh.rotation.x = -0.36;
+  appleInHandsMesh.renderOrder = 3;
+  appleInHandsMesh.visible = false;
+  playerGroup.add(appleInHandsMesh);
 
   // Marcador de Destino no Chão
   const markerGeo = new THREE.PlaneGeometry(1.2, 1.2);
@@ -338,6 +482,116 @@
           playerMesh.material.needsUpdate = true;
         }
       });
+    });
+  }
+
+  // 5.0 Sprites do Jogador com Maçã (para os 6 arquivos desenhados pelo usuário)
+  const spriteAssetsWithApple = {
+    idle: ['player-apple-idle-a.png', 'player-apple-idle-b.png'],
+    run_right: ['player-apple-run-right-a.png', 'player-apple-run-right-b.png'],
+    run_left: ['player-apple-run-left-a.png', 'player-apple-run-left-b.png']
+  };
+
+  const spriteTexturesWithApple = {
+    idle: [null, null],
+    run_right: [null, null],
+    run_left: [null, null]
+  };
+
+  let hasCustomAppleSprites = false;
+
+  for (const state in spriteAssetsWithApple) {
+    spriteAssetsWithApple[state].forEach((path, idx) => {
+      textureLoader.load(
+        path,
+        (tex) => {
+          tex.generateMipmaps = true;
+          tex.minFilter = THREE.LinearMipmapLinearFilter;
+          tex.magFilter = THREE.LinearFilter;
+          spriteTexturesWithApple[state][idx] = tex;
+          hasCustomAppleSprites = true;
+
+          // Se for o primeiro frame de idle e o segundo estiver ausente, duplica para respiração contínua
+          if (state === 'idle' && idx === 0 && !spriteTexturesWithApple.idle[1]) {
+            spriteTexturesWithApple.idle[1] = tex;
+          }
+        },
+        undefined,
+        () => {
+          // Arquivo ausente: se for o frame B de idle e já temos o frame A, usa o A como espelho
+          if (state === 'idle' && idx === 1 && spriteTexturesWithApple.idle[0]) {
+            spriteTexturesWithApple.idle[1] = spriteTexturesWithApple.idle[0];
+          } else {
+            spriteTexturesWithApple[state][idx] = null;
+          }
+        }
+      );
+    });
+  }
+
+  // 5.05 Sistema de Maçãs do Mapa (Máx: 15 Maçãs em Árvores Distintas)
+  const MAX_MAP_APPLES = 15;
+  let playerHasApple = false;
+  let chestApplesCount = 0;
+  let currentInteractTarget = null;
+
+  let appleTexture = createAppleTexture();
+  const registeredAppleTrees = [];
+  const mapApples = [];
+  const groundApples = [];
+
+  textureLoader.load('maca.png?v=' + Date.now(), (tex) => {
+    tex.generateMipmaps = true;
+    tex.minFilter = THREE.LinearMipmapLinearFilter;
+    appleTexture = tex;
+    if (typeof appleInHandsMat !== 'undefined' && appleInHandsMat) {
+      appleInHandsMat.map = tex;
+      appleInHandsMat.needsUpdate = true;
+    }
+    mapApples.forEach(a => {
+      if (a.mesh && a.mesh.material) {
+        a.mesh.material.map = tex;
+        a.mesh.material.needsUpdate = true;
+      }
+    });
+  });
+
+  function tryRegisterTreeForApple(treeGroup, x, z, scale, flip, isFirst = false) {
+    if (registeredAppleTrees.length >= MAX_MAP_APPLES) return;
+
+    const appleIndex = registeredAppleTrees.length;
+    registeredAppleTrees.push({ group: treeGroup, x, z, scale, flip });
+
+    // Sprite da Maçã pendurada na copa
+    const appleGeo = new THREE.PlaneGeometry(0.56, 0.56);
+    const appleMat = new THREE.MeshBasicMaterial({
+      map: appleTexture,
+      transparent: true,
+      alphaTest: 0.02,
+      side: THREE.DoubleSide,
+      depthWrite: false
+    });
+    const appleMesh = new THREE.Mesh(appleGeo, appleMat);
+    appleMesh.rotation.x = -0.36;
+    appleMesh.position.set(flip * 0.42 * scale * 0.26, scale * 0.62, 0.12);
+    appleMesh.renderOrder = BASE_SORT_ORDER + Math.round(z * 100) + 2;
+    treeGroup.add(appleMesh);
+
+    // Queda: 1ª árvore cai aos 10s para teste imediato. As demais entre 120s e 180s (2 a 3 min)
+    const dropTime = (isFirst || appleIndex === 0) ? 10.0 : (120.0 + Math.random() * 60.0);
+
+    mapApples.push({
+      id: appleIndex + 1,
+      state: 'hanging', // 'hanging' | 'falling' | 'ground' | 'collected'
+      treeGroup: treeGroup,
+      mesh: appleMesh,
+      dropTimer: dropTime,
+      worldX: x + flip * 0.42 * scale * 0.26,
+      worldZ: z,
+      posY: scale * 0.62,
+      vy: 0,
+      bounces: 0,
+      groundShadow: null
     });
   }
 
@@ -564,6 +818,9 @@
       };
       chunkRocks.push(treeEntry);
       activeRockObstacles.push(treeEntry);
+      if (typeof tryRegisterTreeForApple === 'function') {
+        tryRegisterTreeForApple(tItem, tx, tz, baseScale, flipX, false);
+      }
     }
 
     // No chunk inicial (0, 0), inclui a clareira com árvores imponentes visíveis imediatamente na tela inicial
@@ -575,7 +832,7 @@
         { x: -2.8, z: 1.8, scale: 3.7, flip: -1 }   // Oeste (lateral esquerda da tela)
       ];
 
-      startingTrees.forEach((t) => {
+      startingTrees.forEach((t, sIdx) => {
         const tItem = new THREE.Group();
         tItem.position.set(t.x, 0, t.z);
 
@@ -603,6 +860,10 @@
         };
         chunkRocks.push(treeObs);
         activeRockObstacles.push(treeObs);
+
+        if (typeof tryRegisterTreeForApple === 'function') {
+          tryRegisterTreeForApple(tItem, t.x, t.z, t.scale, t.flip, sIdx === 0);
+        }
       });
     }
 
@@ -1087,10 +1348,10 @@
     userPrevZoom = targetZoom;
     targetZoom = 1.95; // Zoom cinemático no mestre e no viajante
 
-    // Trava movimento do jogador
-    targetPosition = null;
-    velocity.set(0, 0, 0);
-    isMoving = false;
+    // Trava movimento do jogador e força pose de repouso imediata
+    if (typeof stopPlayerMovementAndSetIdle === 'function') {
+      stopPlayerMovementAndSetIdle();
+    }
 
     // Esconde prompt de aproximação
     const promptEl = document.getElementById('npcPrompt');
@@ -1340,27 +1601,7 @@ DIRETRIZES:
       bubbleEl.style.top = `${screenY}px`;
     }
 
-    if (promptEl) {
-      promptEl.style.left = `${screenX}px`;
-      promptEl.style.top = `${screenY - 12}px`;
-    }
-
-    // Distância do jogador ao NPC
-    const distToNpc = Math.hypot(
-      playerGroup.position.x - npcPosition.x,
-      playerGroup.position.z - npcPosition.z
-    );
-
-    // Prompt de Interação flutuante
-    if (!inDialogue) {
-      if (distToNpc <= 3.2 && !isBehind) {
-        if (promptEl) promptEl.classList.remove('npc-ui-hidden');
-      } else {
-        if (promptEl) promptEl.classList.add('npc-ui-hidden');
-      }
-    } else {
-      if (promptEl) promptEl.classList.add('npc-ui-hidden');
-    }
+    // (Posicionamento do promptEl gerenciado centralmente por updateContextualPrompt)
   }
 
   // Atualização Geral do NPC no Loop
@@ -1392,10 +1633,14 @@ DIRETRIZES:
     }
   }
 
-  // Event Listeners dos Elementos de Diálogo do NPC
+  // Event Listeners dos Elementos de Diálogo e Interação Contextual
   document.getElementById('btnNpcInteract')?.addEventListener('click', (e) => {
     e.stopPropagation();
-    startDialogue();
+    if (typeof handleContextualInteraction === 'function' && currentInteractTarget) {
+      handleContextualInteraction();
+    } else {
+      startDialogue();
+    }
   });
 
   document.getElementById('btnCloseChat')?.addEventListener('click', (e) => {
@@ -1809,6 +2054,517 @@ DIRETRIZES:
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // 5.5 Baú 3D Articulado e Efeitos Sonoros
+  // ---------------------------------------------------------------------------
+  let chestTexture = createProceduralChestTexture();
+
+  // Efeitos Sonoros Procedurais via Web Audio API
+  let audioContext = null;
+  function getAudioCtx() {
+    if (!audioContext) {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (AudioCtx) audioContext = new AudioCtx();
+    }
+    if (audioContext && audioContext.state === 'suspended') {
+      audioContext.resume();
+    }
+    return audioContext;
+  }
+
+  function playPickupSound() {
+    try {
+      const ctx = getAudioCtx();
+      if (!ctx) return;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(520, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(980, ctx.currentTime + 0.12);
+      gain.gain.setValueAtTime(0.14, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.16);
+    } catch (e) {}
+  }
+
+  function playDepositSound() {
+    try {
+      const ctx = getAudioCtx();
+      if (!ctx) return;
+      const notes = [523.25, 659.25, 783.99, 1046.50]; // Arpejo C5, E5, G5, C6
+      notes.forEach((freq, idx) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        const startTime = ctx.currentTime + idx * 0.06;
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, startTime);
+        gain.gain.setValueAtTime(0.12, startTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.28);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(startTime);
+        osc.stop(startTime + 0.30);
+      });
+    } catch (e) {}
+  }
+
+  function playChestSound(isOpen) {
+    try {
+      const ctx = getAudioCtx();
+      if (!ctx) return;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sawtooth';
+      const startF = isOpen ? 220 : 380;
+      const endF = isOpen ? 360 : 180;
+      osc.frequency.setValueAtTime(startF, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(endF, ctx.currentTime + 0.18);
+      gain.gain.setValueAtTime(0.08, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.20);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.22);
+    } catch (e) {}
+  }
+
+  // Notificações Toast no HUD
+  let toastTimeout = null;
+  function showToast(message, duration = 3000) {
+    const toastEl = document.getElementById('gameToast');
+    if (!toastEl) return;
+    toastEl.textContent = message;
+    toastEl.classList.remove('toast-hidden');
+    if (toastTimeout) clearTimeout(toastTimeout);
+    toastTimeout = setTimeout(() => {
+      toastEl.classList.add('toast-hidden');
+    }, duration);
+  }
+
+  function updateCarrySlotUI() {
+    const slotEl = document.getElementById('carrySlot');
+    const labelEl = document.getElementById('carrySlotLabel');
+    if (!slotEl || !labelEl) return;
+    if (playerHasApple) {
+      slotEl.classList.remove('carry-slot-empty');
+      slotEl.classList.add('carry-slot-filled');
+      labelEl.textContent = 'Maçã (1/1)';
+    } else {
+      slotEl.classList.remove('carry-slot-filled');
+      slotEl.classList.add('carry-slot-empty');
+      labelEl.textContent = 'Mãos Vazias';
+    }
+  }
+
+  function updateChestBadgeUI() {
+    const countEl = document.getElementById('chestCountDisplay');
+    if (countEl) {
+      countEl.textContent = `${chestApplesCount}/${MAX_MAP_APPLES}`;
+    }
+  }
+
+  // Partículas de Brilho Especial (Baú e Maçã)
+  function spawnSparkleParticles(x, y, z, count = 12, colorHex = 0xffd700) {
+    for (let i = 0; i < count; i++) {
+      if (fxParticles.length >= MAX_FX_PARTICLES) break;
+      const geo = new THREE.PlaneGeometry(0.24, 0.24);
+      const mat = new THREE.MeshBasicMaterial({
+        color: colorHex,
+        transparent: true,
+        opacity: 0.95,
+        depthWrite: false
+      });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.rotation.x = -0.36;
+      mesh.position.set(
+        x + (Math.random() - 0.5) * 0.45,
+        y + (Math.random() - 0.5) * 0.25,
+        z + (Math.random() - 0.5) * 0.45
+      );
+      fxGroup.add(mesh);
+      fxParticles.push({
+        mesh: mesh,
+        vx: (Math.random() - 0.5) * 0.85,
+        vz: (Math.random() - 0.5) * 0.85,
+        vy: 0.8 + Math.random() * 0.95,
+        baseScale: 0.24,
+        initialOpacity: 0.95,
+        age: 0,
+        life: 0.65 + Math.random() * 0.35
+      });
+    }
+  }
+
+  // Criação do Baú 3D Articulado em (1.8, 0, 0.8)
+  const chestGroup = new THREE.Group();
+  chestGroup.position.set(1.8, 0, 0.8);
+  scene.add(chestGroup);
+
+  // Sombra suave sob a base do baú
+  const chestShadowGeo = new THREE.PlaneGeometry(1.6, 1.2);
+  const chestShadowMat = new THREE.MeshBasicMaterial({
+    map: createShadowTexture(),
+    transparent: true,
+    depthWrite: false
+  });
+  const chestShadowMesh = new THREE.Mesh(chestShadowGeo, chestShadowMat);
+  chestShadowMesh.rotation.x = -Math.PI / 2;
+  chestShadowMesh.position.y = 0.008;
+  chestGroup.add(chestShadowMesh);
+
+  // Material comum do Baú
+  const chestMat = new THREE.MeshBasicMaterial({
+    map: chestTexture,
+    side: THREE.DoubleSide
+  });
+
+  // Função para mapear cada face da BoxGeometry para o quadrante exato do atlas UV de 1024x1024
+  function applyChestBoxUVs(geometry, isBase) {
+    const uv = geometry.attributes.uv;
+    function setFace(faceIndex, pxX, pxY, pxW, pxH) {
+      const u0 = pxX / 1024;
+      const u1 = (pxX + pxW) / 1024;
+      const v0 = (1024 - (pxY + pxH)) / 1024;
+      const v1 = (1024 - pxY) / 1024;
+      const off = faceIndex * 8;
+      uv.array[off + 0] = u0; uv.array[off + 1] = v1;
+      uv.array[off + 2] = u1; uv.array[off + 3] = v1;
+      uv.array[off + 4] = u0; uv.array[off + 5] = v0;
+      uv.array[off + 6] = u1; uv.array[off + 7] = v0;
+    }
+
+    if (isBase) {
+      // 0: +X (Direita), 1: -X (Esquerda) -> Laterais [512, 256, 512, 256]
+      setFace(0, 512, 256, 512, 256);
+      setFace(1, 512, 256, 512, 256);
+      // 2: +Y (Cima / Interior) -> Interior [512, 512, 512, 256]
+      setFace(2, 512, 512, 512, 256);
+      // 3: -Y (Fundo) -> Fundo da base [0, 768, 512, 256]
+      setFace(3, 0, 768, 512, 256);
+      // 4: +Z (Frente) -> Frente da Base [0, 256, 512, 256] (COM A FECHADURA DESENHADA!)
+      setFace(4, 0, 256, 512, 256);
+      // 5: -Z (Trás) -> Traseira [0, 512, 512, 256]
+      setFace(5, 0, 512, 512, 256);
+    } else {
+      // Tampa
+      // 0: +X, 1: -X -> Laterais [512, 256, 512, 256]
+      setFace(0, 512, 256, 512, 256);
+      setFace(1, 512, 256, 512, 256);
+      // 2: +Y (Topo) -> Topo da Tampa [512, 0, 512, 256] (TÁBUAS SUPERIORES!)
+      setFace(2, 512, 0, 512, 256);
+      // 3: -Y (Interior da tampa) -> Interior [512, 512, 512, 256]
+      setFace(3, 512, 512, 512, 256);
+      // 4: +Z (Frente) -> Frente da Tampa [0, 0, 512, 256]
+      setFace(4, 0, 0, 512, 256);
+      // 5: -Z (Trás) -> Traseira [0, 512, 512, 256]
+      setFace(5, 0, 512, 512, 256);
+    }
+    uv.needsUpdate = true;
+  }
+
+  // Base do Baú
+  const chestBaseGeo = new THREE.BoxGeometry(1.2, 0.55, 0.85);
+  applyChestBoxUVs(chestBaseGeo, true);
+  const chestBaseMesh = new THREE.Mesh(chestBaseGeo, chestMat);
+  chestBaseMesh.position.y = 0.275;
+  chestBaseMesh.renderOrder = BASE_SORT_ORDER + Math.round(0.8 * 100);
+  chestGroup.add(chestBaseMesh);
+
+  // Articulação / Dobradiça da Tampa (pivô na aresta superior traseira)
+  const chestLidPivot = new THREE.Group();
+  chestLidPivot.position.set(0, 0.55, -0.425);
+
+  // Mesh da Tampa
+  const chestLidGeo = new THREE.BoxGeometry(1.2, 0.30, 0.85);
+  applyChestBoxUVs(chestLidGeo, false);
+  const chestLidMesh = new THREE.Mesh(chestLidGeo, chestMat);
+  chestLidMesh.position.set(0, 0.15, 0.425);
+  chestLidMesh.renderOrder = BASE_SORT_ORDER + Math.round(0.8 * 100) + 1;
+  chestLidPivot.add(chestLidMesh);
+
+  // Fecho dourado estilizado na frente da tampa (ocultado se a textura desenhada possuir fechadura)
+  const claspGeo = new THREE.BoxGeometry(0.18, 0.16, 0.08);
+  const claspMat = new THREE.MeshBasicMaterial({ color: 0xd4af37 });
+  const claspMesh = new THREE.Mesh(claspGeo, claspMat);
+  claspMesh.position.set(0, 0.03, 0.86);
+  chestLidPivot.add(claspMesh);
+
+  chestGroup.add(chestLidPivot);
+
+  // Carrega bau-texture.png com mapeamento UV preciso
+  textureLoader.load('bau-texture.png', (tex) => {
+    tex.generateMipmaps = true;
+    tex.minFilter = THREE.LinearMipmapLinearFilter;
+    chestTexture = tex;
+    chestBaseMesh.material.map = tex;
+    chestBaseMesh.material.needsUpdate = true;
+    chestLidMesh.material.map = tex;
+    chestLidMesh.material.needsUpdate = true;
+    // Oculta o fecho procedural avulso para deixar a fechadura desenhada pelo usuário brilhar
+    claspMesh.visible = false;
+  });
+
+  // Obstáculo Sólido do Baú
+  const chestObstacle = {
+    x: 1.8,
+    z: 0.8,
+    radius: 0.68,
+    isChest: true
+  };
+  activeRockObstacles.push(chestObstacle);
+
+  // Estado do Baú
+  const chestState = {
+    isOpen: false,
+    angle: 0,
+    targetAngle: 0,
+    autoCloseTimer: 0
+  };
+
+  // Ações de Coleta e Depósito
+  function pickupApple(apple) {
+    if (typeof stopPlayerMovementAndSetIdle === 'function') {
+      stopPlayerMovementAndSetIdle();
+    }
+    if (playerHasApple) {
+      showToast('⚠️ Você já está carregando uma maçã! Leve-a ao baú.');
+      return;
+    }
+    playerHasApple = true;
+    apple.state = 'collected';
+
+    if (apple.mesh && apple.mesh.parent) apple.mesh.parent.remove(apple.mesh);
+    if (apple.groundShadow && apple.groundShadow.parent) apple.groundShadow.parent.remove(apple.groundShadow);
+
+    const gIdx = groundApples.indexOf(apple);
+    if (gIdx !== -1) groundApples.splice(gIdx, 1);
+
+    spawnSparkleParticles(playerGroup.position.x, 0.6, playerGroup.position.z, 8, 0xef4444);
+    playPickupSound();
+    showToast('🍎 Você pegou uma maçã! Leve-a até o baú.');
+    updateCarrySlotUI();
+  }
+
+  function depositAppleToChest() {
+    if (!playerHasApple) return;
+    if (typeof stopPlayerMovementAndSetIdle === 'function') {
+      stopPlayerMovementAndSetIdle();
+    }
+    playerHasApple = false;
+    chestApplesCount = Math.min(MAX_MAP_APPLES, chestApplesCount + 1);
+
+    chestState.isOpen = true;
+    chestState.autoCloseTimer = 3.6;
+
+    spawnSparkleParticles(1.8, 0.65, 0.8, 18, 0xffd700);
+    playDepositSound();
+    showToast(`✨ Maçã guardada no baú! (${chestApplesCount}/${MAX_MAP_APPLES})`);
+    updateCarrySlotUI();
+    updateChestBadgeUI();
+  }
+
+  function toggleChest() {
+    if (typeof stopPlayerMovementAndSetIdle === 'function') {
+      stopPlayerMovementAndSetIdle();
+    }
+    chestState.isOpen = !chestState.isOpen;
+    if (chestState.isOpen) {
+      chestState.autoCloseTimer = 4.0;
+      playChestSound(true);
+      showToast(`📦 Baú aberto (${chestApplesCount}/${MAX_MAP_APPLES} maçãs guardadas)`);
+    } else {
+      playChestSound(false);
+    }
+  }
+
+  // Atualização das Maçãs e Tampa do Baú no Loop
+  function updateChestAndApples(delta) {
+    // 1. Suavização da tampa do Baú 3D
+    chestState.targetAngle = chestState.isOpen ? -Math.PI * 0.42 : 0;
+    chestLidPivot.rotation.x += (chestState.targetAngle - chestLidPivot.rotation.x) * Math.min(1, delta * 8.5);
+
+    if (chestState.isOpen && chestState.autoCloseTimer > 0) {
+      chestState.autoCloseTimer -= delta;
+      if (chestState.autoCloseTimer <= 0) {
+        chestState.isOpen = false;
+        playChestSound(false);
+      }
+    }
+
+    // 2. Ciclo de Maçãs nas Árvores
+    for (let i = 0; i < mapApples.length; i++) {
+      const apple = mapApples[i];
+
+      if (apple.state === 'hanging') {
+        apple.dropTimer -= delta;
+        // Leve balanço com a brisa
+        if (apple.mesh) {
+          apple.mesh.rotation.z = Math.sin(clock.elapsedTime * 2.5 + apple.id) * 0.10;
+        }
+
+        if (apple.dropTimer <= 0) {
+          apple.state = 'falling';
+          const worldPos = new THREE.Vector3();
+          apple.mesh.getWorldPosition(worldPos);
+          apple.treeGroup.remove(apple.mesh);
+          scene.add(apple.mesh);
+          apple.mesh.position.copy(worldPos);
+          apple.worldX = worldPos.x;
+          apple.worldZ = worldPos.z;
+          apple.posY = worldPos.y;
+          apple.vy = 0;
+          apple.bounces = 0;
+        }
+      } else if (apple.state === 'falling') {
+        apple.vy += 11.5 * delta;
+        apple.posY -= apple.vy * delta;
+        apple.mesh.position.y = apple.posY;
+
+        if (apple.posY <= 0.22) {
+          apple.posY = 0.22;
+          apple.mesh.position.y = 0.22;
+          if (apple.bounces < 2) {
+            apple.vy = -apple.vy * 0.42;
+            apple.bounces++;
+          } else {
+            // Assenta no solo
+            apple.state = 'ground';
+            apple.mesh.renderOrder = BASE_SORT_ORDER + Math.round(apple.worldZ * 100);
+
+            // Sombra elíptica no chão
+            const sGeo = new THREE.PlaneGeometry(0.42, 0.26);
+            const sMat = new THREE.MeshBasicMaterial({
+              map: createShadowTexture(),
+              transparent: true,
+              depthWrite: false
+            });
+            const sMesh = new THREE.Mesh(sGeo, sMat);
+            sMesh.rotation.x = -Math.PI / 2;
+            sMesh.position.set(apple.worldX, 0.015, apple.worldZ);
+            scene.add(sMesh);
+            apple.groundShadow = sMesh;
+
+            groundApples.push(apple);
+          }
+        }
+      }
+    }
+  }
+
+  // Prompt Contextual Unificado (Maçã, Baú e NPC)
+  const tempTargetVec = new THREE.Vector3();
+
+  function updateContextualPrompt() {
+    const promptEl = document.getElementById('npcPrompt');
+    const labelEl = document.getElementById('interactLabel');
+    if (!promptEl || inDialogue) {
+      if (promptEl) promptEl.classList.add('npc-ui-hidden');
+      currentInteractTarget = null;
+      return;
+    }
+
+    const px = playerGroup.position.x;
+    const pz = playerGroup.position.z;
+
+    let nearest = null;
+    let nearestDist = Infinity;
+
+    // 1. Maçãs no chão (< 1.8 un)
+    for (let i = 0; i < groundApples.length; i++) {
+      const a = groundApples[i];
+      if (a.state !== 'ground') continue;
+      const d = Math.hypot(px - a.worldX, pz - a.worldZ);
+      if (d <= 1.8 && d < nearestDist) {
+        nearestDist = d;
+        nearest = {
+          type: 'apple',
+          apple: a,
+          x: a.worldX,
+          y: 0.45,
+          z: a.worldZ,
+          label: 'Pegar Maçã'
+        };
+      }
+    }
+
+    // 2. Baú (< 2.2 un)
+    const distToChest = Math.hypot(px - 1.8, pz - 0.8);
+    if (distToChest <= 2.2 && distToChest < nearestDist) {
+      nearestDist = distToChest;
+      let label = 'Abrir Baú';
+      if (playerHasApple) {
+        label = 'Guardar Maçã';
+      } else if (chestState.isOpen) {
+        label = 'Fechar Baú';
+      }
+      nearest = {
+        type: 'chest',
+        x: 1.8,
+        y: 0.85,
+        z: 0.8,
+        label: label
+      };
+    }
+
+    // 3. NPC Mestre Sábio (< 3.2 un)
+    const distToNpc = Math.hypot(px - npcPosition.x, pz - npcPosition.z);
+    if (distToNpc <= 3.2 && distToNpc < nearestDist) {
+      nearestDist = distToNpc;
+      nearest = {
+        type: 'npc',
+        x: npcPosition.x,
+        y: 2.15,
+        z: npcPosition.z,
+        label: 'Conversar'
+      };
+    }
+
+    currentInteractTarget = nearest;
+
+    if (!nearest) {
+      promptEl.classList.add('npc-ui-hidden');
+      return;
+    }
+
+    tempTargetVec.set(nearest.x, nearest.y, nearest.z);
+    tempTargetVec.project(camera);
+
+    const isBehind = tempTargetVec.z > 1;
+    if (isBehind) {
+      promptEl.classList.add('npc-ui-hidden');
+      return;
+    }
+
+    const screenX = (tempTargetVec.x * 0.5 + 0.5) * window.innerWidth;
+    const screenY = (-(tempTargetVec.y * 0.5) + 0.5) * window.innerHeight;
+
+    promptEl.style.left = `${screenX}px`;
+    promptEl.style.top = `${screenY - 12}px`;
+    if (labelEl) labelEl.textContent = nearest.label;
+    promptEl.classList.remove('npc-ui-hidden');
+  }
+
+  function handleContextualInteraction() {
+    if (!currentInteractTarget) return;
+    if (typeof stopPlayerMovementAndSetIdle === 'function') {
+      stopPlayerMovementAndSetIdle();
+    }
+    if (currentInteractTarget.type === 'apple') {
+      pickupApple(currentInteractTarget.apple);
+    } else if (currentInteractTarget.type === 'chest') {
+      if (playerHasApple) {
+        depositAppleToChest();
+      } else {
+        toggleChest();
+      }
+    } else if (currentInteractTarget.type === 'npc') {
+      startDialogue();
+    }
+  }
+
   // 6. Variáveis e Física do Jogador
   const velocity = new THREE.Vector3();
   const inputVector = new THREE.Vector2();
@@ -1824,6 +2580,52 @@ DIRETRIZES:
   let currentFrameIndex = 0;
   let moveDuration = 0;
   let dustSpawnTimer = 0;
+
+  function stopPlayerMovementAndSetIdle() {
+    targetPosition = null;
+    velocity.set(0, 0, 0);
+    inputVector.set(0, 0);
+    isMoving = false;
+    moveDuration = 0;
+    dustSpawnTimer = 0;
+
+    // Cancela teclas pressionadas
+    if (typeof keys !== 'undefined') {
+      keys.w = keys.s = keys.a = keys.d = false;
+      keys.up = keys.down = keys.left = keys.right = false;
+    }
+
+    // Reseta joystick virtual
+    if (typeof resetJoystick === 'function') {
+      resetJoystick();
+    }
+
+    // Reseta estado de animação
+    animState = 'idle';
+    animTimer = 0;
+    currentFrameIndex = 0;
+
+    // Força imediatamente a textura de repouso (idle) e postura física
+    if (playerMesh && playerMesh.material) {
+      const hasDrawnAppleFrames = playerHasApple && hasCustomAppleSprites && spriteTexturesWithApple.idle && spriteTexturesWithApple.idle[0];
+      const sourceTextures = hasDrawnAppleFrames ? spriteTexturesWithApple : spriteTextures;
+      const idleTex = (sourceTextures.idle && sourceTextures.idle[0]) || (spriteTextures.idle && spriteTextures.idle[0]);
+      if (idleTex) {
+        playerMesh.material.map = idleTex;
+        playerMesh.material.needsUpdate = true;
+      }
+      playerMesh.position.y = BASE_Y;
+      playerMesh.rotation.z = 0;
+    }
+
+    if (shadowMesh) {
+      shadowMesh.scale.set(1, 1, 1);
+    }
+
+    if (clickMarkerMesh && clickMarkerMesh.material) {
+      clickMarkerMesh.material.opacity = 0;
+    }
+  }
 
   // Zoom Dinâmico Suave
   let currentZoom = 1.0;
@@ -1846,12 +2648,11 @@ DIRETRIZES:
       return;
     }
 
-    // Tecla 'E' para interagir com o Mestre Sábio quando próximo
+    // Tecla 'E' para interagir contextualmente (Maçã, Baú ou NPC)
     if (e.key === 'e' || e.key === 'E') {
-      const dist = Math.hypot(playerGroup.position.x - npcPosition.x, playerGroup.position.z - npcPosition.z);
-      if (dist <= 3.5 && !inDialogue) {
+      if (!inDialogue && typeof handleContextualInteraction === 'function' && currentInteractTarget) {
         e.preventDefault();
-        startDialogue();
+        handleContextualInteraction();
         return;
       }
     }
@@ -1996,6 +2797,41 @@ DIRETRIZES:
     mousePointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
 
     raycaster.setFromCamera(mousePointer, camera);
+
+    // Se clicar diretamente no NPC ou no Baú dentro do raio de interação, aciona interação e para imediatamente
+    const px = playerGroup.position.x;
+    const pz = playerGroup.position.z;
+    const directTargets = [];
+    if (typeof npcMesh !== 'undefined' && npcMesh) directTargets.push({ obj: npcMesh, type: 'npc', maxDist: 3.5 });
+    if (typeof chestBaseMesh !== 'undefined' && chestBaseMesh) directTargets.push({ obj: chestBaseMesh, type: 'chest', maxDist: 2.8 });
+    if (typeof chestLidMesh !== 'undefined' && chestLidMesh) directTargets.push({ obj: chestLidMesh, type: 'chest', maxDist: 2.8 });
+
+    const directHits = raycaster.intersectObjects(directTargets.map(t => t.obj));
+    if (directHits.length > 0) {
+      const hit = directTargets.find(t => t.obj === directHits[0].object);
+      if (hit) {
+        if (hit.type === 'npc') {
+          const dNpc = Math.hypot(px - npcPosition.x, pz - npcPosition.z);
+          if (dNpc <= hit.maxDist) {
+            stopPlayerMovementAndSetIdle();
+            startDialogue();
+            return;
+          }
+        } else if (hit.type === 'chest') {
+          const dChest = Math.hypot(px - 1.8, pz - 0.8);
+          if (dChest <= hit.maxDist) {
+            stopPlayerMovementAndSetIdle();
+            if (playerHasApple) {
+              depositAppleToChest();
+            } else {
+              toggleChest();
+            }
+            return;
+          }
+        }
+      }
+    }
+
     const intersects = raycaster.intersectObject(groundPlane);
 
     if (intersects.length > 0) {
@@ -2048,14 +2884,47 @@ DIRETRIZES:
       isMoving = false;
       velocity.set(0, 0, 0);
       targetPosition = null;
+      animState = 'idle';
 
-      // Mantém a sutil microanimação de respiração no estado parado
+      // Mantém a postura e microanimação de respiração no estado parado
       if (playerMesh) {
         playerMesh.renderOrder = BASE_SORT_ORDER + Math.round(playerGroup.position.z * 100);
         idleClock += delta * 2.2;
         playerMesh.position.y = BASE_Y + Math.sin(idleClock) * 0.025;
         playerMesh.rotation.z = 0;
         if (shadowMesh) shadowMesh.scale.set(1, 1, 1);
+
+        const hasDrawnAppleFrames = playerHasApple && hasCustomAppleSprites && spriteTexturesWithApple.idle && spriteTexturesWithApple.idle[0];
+        const sourceTextures = hasDrawnAppleFrames ? spriteTexturesWithApple : spriteTextures;
+        const idleFrames = sourceTextures.idle || [];
+
+        if (idleFrames.length > 1) {
+          animTimer += delta;
+          if (animTimer >= 0.75) {
+            animTimer = 0;
+            currentFrameIndex = (currentFrameIndex + 1) % idleFrames.length;
+          }
+        } else {
+          currentFrameIndex = 0;
+        }
+
+        const currentTex = idleFrames[currentFrameIndex];
+        if (currentTex && playerMesh.material.map !== currentTex) {
+          playerMesh.material.map = currentTex;
+          playerMesh.material.needsUpdate = true;
+        }
+
+        if (typeof appleInHandsMesh !== 'undefined' && appleInHandsMesh) {
+          if (playerHasApple && !hasDrawnAppleFrames) {
+            appleInHandsMesh.visible = true;
+            appleInHandsMesh.position.x = facingRight ? 0.12 : -0.12;
+            appleInHandsMesh.position.y = playerMesh.position.y * 0.94;
+            appleInHandsMesh.rotation.z = playerMesh.rotation.z;
+            appleInHandsMesh.renderOrder = playerMesh.renderOrder + 1;
+          } else {
+            appleInHandsMesh.visible = false;
+          }
+        }
       }
       return;
     }
@@ -2235,7 +3104,12 @@ DIRETRIZES:
       // Ordenação dinâmica de profundidade 2.5D (Z-sorting):
       // Quando Z do player for maior que Z do mob (mais à frente), renderOrder será maior e sobrepõe o mob
       playerMesh.renderOrder = BASE_SORT_ORDER + Math.round(playerGroup.position.z * 100);
-      const activeAnimFrames = spriteTextures[animState] || [];
+
+      // Seleciona conjunto com maçã (se o usuário desenhou os 6 sprites) ou normal
+      const hasDrawnAppleFrames = playerHasApple && hasCustomAppleSprites && spriteTexturesWithApple[animState]?.[0];
+      const sourceTextures = hasDrawnAppleFrames ? spriteTexturesWithApple : spriteTextures;
+
+      const activeAnimFrames = sourceTextures[animState] || [];
       const isDedicatedDir = (animState === 'run_left' || animState === 'run_right');
       const scaleX = isDedicatedDir ? 1 : (facingRight ? 1 : -1);
       playerMesh.scale.x = scaleX;
@@ -2254,7 +3128,7 @@ DIRETRIZES:
           currentFrameIndex = 0;
         }
 
-        const currentTex = activeAnimFrames[currentFrameIndex] || spriteTextures.idle[0];
+        const currentTex = activeAnimFrames[currentFrameIndex] || sourceTextures.idle[0];
         if (currentTex && playerMesh.material.map !== currentTex) {
           playerMesh.material.map = currentTex;
           playerMesh.material.needsUpdate = true;
@@ -2281,7 +3155,7 @@ DIRETRIZES:
         }
 
         // Troca sutil entre os frames de idle (~0.75s)
-        const idleFrames = spriteTextures.idle || [];
+        const idleFrames = sourceTextures.idle || [];
         if (idleFrames.length > 1) {
           animTimer += delta;
           if (animTimer >= 0.75) {
@@ -2296,6 +3170,19 @@ DIRETRIZES:
         if (currentTex && playerMesh.material.map !== currentTex) {
           playerMesh.material.map = currentTex;
           playerMesh.material.needsUpdate = true;
+        }
+      }
+
+      // Atualiza maçã de fallback nas mãos (se o usuário ainda não tiver desenhado os sprites completos)
+      if (typeof appleInHandsMesh !== 'undefined' && appleInHandsMesh) {
+        if (playerHasApple && !hasDrawnAppleFrames) {
+          appleInHandsMesh.visible = true;
+          appleInHandsMesh.position.x = facingRight ? 0.12 : -0.12;
+          appleInHandsMesh.position.y = playerMesh.position.y * 0.94;
+          appleInHandsMesh.rotation.z = playerMesh.rotation.z;
+          appleInHandsMesh.renderOrder = playerMesh.renderOrder + 1;
+        } else {
+          appleInHandsMesh.visible = false;
         }
       }
     }
@@ -2339,11 +3226,9 @@ DIRETRIZES:
     // Chão infinito segue a posição do jogador de forma transparente
     groundPlane.position.x = playerGroup.position.x;
     groundPlane.position.z = playerGroup.position.z;
-    marksPlane.position.x = playerGroup.position.x;
-    marksPlane.position.z = playerGroup.position.z;
-    if (marksPlane.material.map) {
-      marksPlane.material.map.offset.x = (playerGroup.position.x / 350) * 70;
-      marksPlane.material.map.offset.y = -(playerGroup.position.z / 350) * 70;
+    if (marksPlane) {
+      marksPlane.position.x = playerGroup.position.x;
+      marksPlane.position.z = playerGroup.position.z;
     }
 
     // Atualiza HUD
@@ -2366,6 +3251,8 @@ DIRETRIZES:
     updateMobs(delta);
     if (typeof updateNpc === 'function') updateNpc(delta);
     if (typeof updateWizard === 'function') updateWizard(delta);
+    if (typeof updateChestAndApples === 'function') updateChestAndApples(delta);
+    if (typeof updateContextualPrompt === 'function') updateContextualPrompt();
     updateParticles(delta);
     updateCamera(delta);
 
