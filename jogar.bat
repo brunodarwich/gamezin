@@ -1,15 +1,15 @@
 @echo off
-title Gamezin - Servidor Local
-
+title Gamezin - Servidor Web Seguro
 cd /d "%~dp0"
 
 echo ======================================================
 echo           GAMEZIN - MOTOR 2.5D ISOMETRICO
 echo ======================================================
 echo.
-echo  Iniciando servidor local na porta 8080...
+echo  Iniciando servidor web seguro na porta 8080...
 echo  Seu navegador sera aberto em: http://localhost:8080
 echo.
+echo  [Seguranca] Chave DeepSeek protegida via server.py / .env
 echo  [Dica] Para encerrar o jogo, feche esta janela.
 echo ======================================================
 echo.
@@ -18,15 +18,25 @@ start "" powershell -WindowStyle Hidden -Command "Start-Sleep -Milliseconds 600;
 
 where python >nul 2>&1
 if %ERRORLEVEL% NEQ 0 goto try_py
-echo Servidor iniciado com Python na porta 8080.
-python -m http.server 8080
+if exist server.py (
+    echo Servidor seguro iniciado com Python (server.py) na porta 8080.
+    python server.py 8080
+) else (
+    echo Servidor iniciado com Python na porta 8080.
+    python -m http.server 8080
+)
 goto final
 
 :try_py
 where py >nul 2>&1
 if %ERRORLEVEL% NEQ 0 goto try_node
-echo Servidor iniciado com Python py na porta 8080.
-py -m http.server 8080
+if exist server.py (
+    echo Servidor seguro iniciado com Python py (server.py) na porta 8080.
+    py server.py 8080
+) else (
+    echo Servidor iniciado com Python py na porta 8080.
+    py -m http.server 8080
+)
 goto final
 
 :try_node

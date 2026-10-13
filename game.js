@@ -1207,12 +1207,35 @@
     npcTextures.talking = tex;
   });
 
-  // Configurações da API DeepSeek
+  // Configurações da API DeepSeek (NUNCA insira chaves reais de API neste código-fonte!)
   const DEEPSEEK_CONFIG = {
-    apiKey: 'sk-3d51c1545e6748978fa84f9b9b9727fb',
+    apiKey: '', // A chave NUNCA é gravada no código. É obtida com segurança do localStorage ou via proxy local
     model: 'deepseek-chat',
-    endpoint: 'https://api.deepseek.com/chat/completions'
+    endpoint: 'https://api.deepseek.com/chat/completions',
+    proxyEndpoint: '/api/chat'
   };
+
+  const STORAGE_KEY_DEEPSEEK = 'gamezin_deepseek_api_key';
+
+  function getStoredApiKey() {
+    try {
+      return (localStorage.getItem(STORAGE_KEY_DEEPSEEK) || '').trim();
+    } catch (e) {
+      return '';
+    }
+  }
+
+  function setStoredApiKey(key) {
+    try {
+      if (key && key.trim()) {
+        localStorage.setItem(STORAGE_KEY_DEEPSEEK, key.trim());
+      } else {
+        localStorage.removeItem(STORAGE_KEY_DEEPSEEK);
+      }
+    } catch (e) {
+      console.warn('Falha ao acessar localStorage:', e);
+    }
+  }
 
   // 30 Frases e Ensinamentos Autênticos do Canal Corvo Seco (Advaita, Zen, Autoinvestigação)
   const CORVO_SECO_QUOTES = [
@@ -1457,7 +1480,7 @@
     }
   }
 
-  // Envio de Mensagem para a IA DeepSeek
+  // Envio de Mensagem para a IA DeepSeek com Segurança e Fallback Contemplativo
   async function handlePlayerSend() {
     if (!inDialogue || isAwaitingAI) return;
     const inputEl = document.getElementById('npcChatInput');
@@ -1485,6 +1508,24 @@
     const bubbleText = document.getElementById('npcSpeechText');
     if (bubbleText) bubbleText.textContent = '...';
 
+    // Helper para selecionar sabedoria contemplativa do Corvo Seco
+    const pickWisdomReply = () => {
+      if (isFinalTurn) {
+        const farewellQuotes = [
+          "O silêncio agora nos acolhe. Eu e meu gato iremos apenas contemplar a brisa da tarde. Siga em paz, viajante.",
+          "As palavras cumpriram sua missão de apontar o caminho. Agora, permita que o silêncio guie seus passos.",
+          "O copo da mente já recebeu o bastante por hoje. Descanse a busca e seja apenas aquilo que você é."
+        ];
+        return farewellQuotes[Math.floor(Math.random() * farewellQuotes.length)];
+      }
+      const quote = CORVO_SECO_QUOTES[idleQuoteIndex];
+      idleQuoteIndex = (idleQuoteIndex + 1) % CORVO_SECO_QUOTES.length;
+      return quote;
+    };
+
+    let reply = "";
+    const localApiKey = getStoredApiKey();
+
     try {
       let systemPrompt = `Você é o Mestre Sábio, um ancião sereno, lúcido e acolhedor acompanhado de seu gato tranquilo ao lado, inspirado nos ensinamentos de não-dualidade do canal "Corvo Seco" (Advaita Vedanta, Zen, Taoísmo, Nisargadatta Maharaj, Ramana Maharshi, Wu Hsin).
 DIRETRIZES:
@@ -1496,87 +1537,117 @@ DIRETRIZES:
         systemPrompt += `\nESTE É O 5º E ÚLTIMO TURNO DE CONVERSA: Você DEVE responder de forma profunda ao que o viajante disse e, em seguida, inventar uma desculpa sábia, poética ou bem-humorada com seu gato para encerrar o diálogo (por exemplo: que as palavras já cumpriram seu papel de apontar o caminho, que agora é hora de praticar o silêncio em seus passos, ou que você e seu gato precisam contemplar a brisa em quietude). Despeça-se cordialmente.`;
       }
 
-      const response = await fetch(DEEPSEEK_CONFIG.endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${DEEPSEEK_CONFIG.apiKey}`
-        },
-        body: JSON.stringify({
-          model: DEEPSEEK_CONFIG.model,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            ...dialogueHistory
-          ],
-          max_tokens: 220,
-          temperature: 0.7
-        })
-      });
+      // Prioridade 1: Chave configurada privadamente pelo jogador no navegador
+      if (localApiKey) {
+        try {
+          const response = await fetch(DEEPSEEK_CONFIG.endpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${localApiKey}`
+            },
+            body: JSON.stringify({
+              model: DEEPSEEK_CONFIG.model,
+              messages: [
+                { role: 'system', content: systemPrompt },
+                ...dialogueHistory
+              ],
+              max_tokens: 220,
+              temperature: 0.7
+            })
+          });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error ${response.status}`);
-      }
-
-      const data = await response.json();
-      let reply = "";
-      if (data.choices && data.choices[0] && data.choices[0].message) {
-        const msg = data.choices[0].message;
-        if (typeof msg.content === 'string' && msg.content.trim().length > 0) {
-          reply = msg.content.trim();
-        } else if (typeof msg.reasoning_content === 'string' && msg.reasoning_content.trim().length > 0) {
-          reply = msg.reasoning_content.trim();
-        }
-      }
-
-      if (!reply) {
-        reply = "O silêncio agora ensina mais do que qualquer palavra...";
-      }
-
-      dialogueHistory.push({ role: 'assistant', content: reply });
-
-      // Oculta suavemente o balão do jogador após o mestre começar a responder
-      hidePlayerSpeech(4500);
-
-      displaySpeechText(reply, isFinalTurn ? 'Encerramento' : 'Mestre', () => {
-        if (isFinalTurn) {
-          // Após ler o último ensinamento, encerra automaticamente a conversa
-          setTimeout(() => {
-            endDialogue();
-          }, 4500);
-        } else {
-          if (inputEl) {
-            inputEl.disabled = false;
-            inputEl.focus();
+          if (response.ok) {
+            const data = await response.json();
+            if (data.choices && data.choices[0] && data.choices[0].message) {
+              const msg = data.choices[0].message;
+              if (typeof msg.content === 'string' && msg.content.trim().length > 0) {
+                reply = msg.content.trim();
+              } else if (typeof msg.reasoning_content === 'string' && msg.reasoning_content.trim().length > 0) {
+                reply = msg.reasoning_content.trim();
+              }
+            }
+          } else {
+            console.warn(`DeepSeek API status: ${response.status}`);
+            if (response.status === 401 || response.status === 402) {
+              if (typeof showToast === 'function') {
+                showToast('Chave DeepSeek sem créditos ou inválida. Usando sabedoria offline.', 3500);
+              }
+            }
           }
-          if (sendBtn) sendBtn.disabled = false;
-          isAwaitingAI = false;
+        } catch (fetchErr) {
+          console.warn('Erro ao conectar à API DeepSeek:', fetchErr);
         }
-      });
+      } else {
+        // Prioridade 2: Proxy do servidor local seguro (server.py -> .env)
+        try {
+          const proxyResp = await fetch(DEEPSEEK_CONFIG.proxyEndpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              messages: [
+                { role: 'system', content: systemPrompt },
+                ...dialogueHistory
+              ],
+              max_tokens: 220,
+              temperature: 0.7
+            })
+          });
+
+          if (proxyResp.ok) {
+            const proxyData = await proxyResp.json();
+            if (proxyData.choices && proxyData.choices[0] && proxyData.choices[0].message) {
+              const msg = proxyData.choices[0].message;
+              if (typeof msg.content === 'string' && msg.content.trim().length > 0) {
+                reply = msg.content.trim();
+              } else if (typeof msg.reasoning_content === 'string' && msg.reasoning_content.trim().length > 0) {
+                reply = msg.reasoning_content.trim();
+              }
+            } else if (proxyData.ok === false) {
+              if (proxyData.status === 401) {
+                if (typeof showToast === 'function') {
+                  showToast('Chave DeepSeek no .env inválida ou revogada. Usando sabedoria offline.', 4000);
+                }
+              } else if (proxyData.status === 402) {
+                if (typeof showToast === 'function') {
+                  showToast('Saldo esgotado no DeepSeek (.env). Usando sabedoria offline.', 4000);
+                }
+              } else if (proxyData.error === 'rate_limit') {
+                if (typeof showToast === 'function') {
+                  showToast('Muitas mensagens em pouco tempo. Aguarde um instante.', 3000);
+                }
+              }
+            }
+          }
+        } catch (proxyErr) {
+          // Servidor estático ou GitHub Pages, usa sabedoria offline nativa
+        }
+      }
     } catch (err) {
-      console.warn('DeepSeek API fallback:', err);
-      const fallbackQuotes = [
-        "As palavras se perderam na névoa, mas a verdade do silêncio continua viva e serena dentro de você.",
-        "O vento levou a resposta. Olhe para dentro de si mesmo neste instante e você a encontrará.",
-        "Não se prenda à dependência de respostas externas. A quietude é seu mestre supremo."
-      ];
-      const fallback = fallbackQuotes[Math.floor(Math.random() * fallbackQuotes.length)];
-      dialogueHistory.push({ role: 'assistant', content: fallback });
-
-      hidePlayerSpeech(4500);
-
-      displaySpeechText(fallback, isFinalTurn ? 'Encerramento' : 'Reflexão', () => {
-        if (isFinalTurn) {
-          setTimeout(() => endDialogue(), 4000);
-        } else {
-          if (inputEl) {
-            inputEl.disabled = false;
-            inputEl.focus();
-          }
-          if (sendBtn) sendBtn.disabled = false;
-          isAwaitingAI = false;
-        }
-      });
+      console.warn('DeepSeek process fallback:', err);
     }
+
+    if (!reply) {
+      reply = pickWisdomReply();
+    }
+
+    dialogueHistory.push({ role: 'assistant', content: reply });
+    hidePlayerSpeech(4500);
+
+    displaySpeechText(reply, isFinalTurn ? 'Encerramento' : 'Mestre', () => {
+      if (isFinalTurn) {
+        setTimeout(() => {
+          endDialogue();
+        }, 4500);
+      } else {
+        if (inputEl) {
+          inputEl.disabled = false;
+          inputEl.focus();
+        }
+        if (sendBtn) sendBtn.disabled = false;
+        isAwaitingAI = false;
+      }
+    });
   }
 
   // Projeção das Coordenadas 3D para a Interface em Tela
@@ -1661,6 +1732,135 @@ DIRETRIZES:
       showPlayerSpeech(val);
     } else {
       hidePlayerSpeech(0);
+    }
+  });
+
+  // =========================================================================
+  // Modal de Configuração Segura da Chave IA DeepSeek (localStorage)
+  // =========================================================================
+  const aiModalEl = document.getElementById('aiConfigModal');
+  const aiKeyInputEl = document.getElementById('aiKeyInput');
+  const aiStatusMsgEl = document.getElementById('aiKeyStatusMessage');
+  const btnToggleEyeEl = document.getElementById('btnToggleKeyVisibility');
+
+  function isAiModalOpen() {
+    return aiModalEl && !aiModalEl.classList.contains('visitor-ui-hidden');
+  }
+
+  function updateAiModalStatusUI() {
+    const key = getStoredApiKey();
+    if (!aiStatusMsgEl) return;
+    if (key) {
+      aiStatusMsgEl.className = 'ai-key-status ai-status-active';
+      aiStatusMsgEl.innerHTML = '🟢 <strong>Chave Ativa no Navegador:</strong> Conectada com segurança via localStorage.';
+      if (aiKeyInputEl && (!aiKeyInputEl.value || aiKeyInputEl.value === '')) {
+        aiKeyInputEl.value = key;
+      }
+      return;
+    }
+
+    aiStatusMsgEl.className = 'ai-key-status ai-status-offline';
+    aiStatusMsgEl.innerHTML = '⚪ <strong>Modo Sabedoria Offline:</strong> Usando 30 ensinamentos autênticos do Corvo Seco.';
+
+    // Verifica de forma segura se o proxy local server.py possui chave ativa no .env
+    fetch('/api/status')
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (!getStoredApiKey() && data && data.has_env_key) {
+          aiStatusMsgEl.className = 'ai-key-status ai-status-server';
+          aiStatusMsgEl.innerHTML = '🔵 <strong>Servidor Local Ativo:</strong> Chave protegida detectada no arquivo <code>.env</code>.';
+        }
+      })
+      .catch(() => {
+        // Modo estático normal
+      });
+  }
+
+  function openAiConfigModal() {
+    if (!aiModalEl) return;
+    updateAiModalStatusUI();
+    aiModalEl.classList.remove('visitor-ui-hidden');
+    if (aiKeyInputEl) {
+      setTimeout(() => aiKeyInputEl.focus(), 150);
+    }
+  }
+
+  function closeAiConfigModal() {
+    if (!aiModalEl) return;
+    aiModalEl.classList.add('visitor-ui-hidden');
+  }
+
+  document.getElementById('btnAiConfig')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    openAiConfigModal();
+  });
+
+  document.getElementById('btnAiConfigHud')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    openAiConfigModal();
+  });
+
+  document.getElementById('btnCloseAiConfigModal')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    closeAiConfigModal();
+  });
+
+  if (aiModalEl) {
+    aiModalEl.addEventListener('click', (e) => {
+      if (e.target === aiModalEl) {
+        closeAiConfigModal();
+      }
+    });
+  }
+
+  aiKeyInputEl?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      document.getElementById('btnSaveAiKey')?.click();
+    }
+  });
+
+  btnToggleEyeEl?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (!aiKeyInputEl) return;
+    if (aiKeyInputEl.type === 'password') {
+      aiKeyInputEl.type = 'text';
+      btnToggleEyeEl.textContent = '🔒';
+    } else {
+      aiKeyInputEl.type = 'password';
+      btnToggleEyeEl.textContent = '👁️';
+    }
+  });
+
+  document.getElementById('btnSaveAiKey')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    let val = (aiKeyInputEl?.value || '').trim();
+    // Remove possíveis aspas adicionadas acidentalmente ao colar
+    val = val.replace(/^["']|["']$/g, '').trim();
+
+    if (val) {
+      setStoredApiKey(val);
+      updateAiModalStatusUI();
+      if (typeof showToast === 'function') {
+        showToast('Chave DeepSeek salva com segurança no navegador!');
+      }
+      setTimeout(() => closeAiConfigModal(), 400);
+    } else {
+      setStoredApiKey('');
+      updateAiModalStatusUI();
+      if (typeof showToast === 'function') {
+        showToast('Modo Sabedoria Offline ativado!');
+      }
+    }
+  });
+
+  document.getElementById('btnRemoveAiKey')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    setStoredApiKey('');
+    if (aiKeyInputEl) aiKeyInputEl.value = '';
+    updateAiModalStatusUI();
+    if (typeof showToast === 'function') {
+      showToast('Chave removida. Modo Sabedoria Offline ativo.');
     }
   });
 
@@ -2640,10 +2840,21 @@ DIRETRIZES:
   };
 
   window.addEventListener('keydown', (e) => {
-    // Se o jogador estiver digitando na caixa de chat, não processa movimentação nem atalhos do jogo
+    // Se o modal de segurança da IA estiver aberto, bloqueia atalhos e movimentação do jogo
+    if (typeof isAiModalOpen === 'function' && isAiModalOpen()) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closeAiConfigModal();
+      }
+      return;
+    }
+
+    // Se o jogador estiver digitando na caixa de chat
     if (document.activeElement && document.activeElement.tagName === 'INPUT') {
-      if (e.key === 'Escape' && inDialogue) {
-        endDialogue();
+      if (e.key === 'Escape') {
+        if (inDialogue) {
+          endDialogue();
+        }
       }
       return;
     }
@@ -2657,11 +2868,18 @@ DIRETRIZES:
       }
     }
 
-    // Tecla Escape encerra o diálogo
-    if (e.key === 'Escape' && inDialogue) {
-      e.preventDefault();
-      endDialogue();
-      return;
+    // Tecla Escape encerra o modal de IA ou diálogo
+    if (e.key === 'Escape') {
+      if (typeof isAiModalOpen === 'function' && isAiModalOpen()) {
+        e.preventDefault();
+        closeAiConfigModal();
+        return;
+      }
+      if (inDialogue) {
+        e.preventDefault();
+        endDialogue();
+        return;
+      }
     }
 
     const k = e.key.toLowerCase();
@@ -2786,12 +3004,14 @@ DIRETRIZES:
     // Ignora cliques que não sejam o botão principal (botão esquerdo / toque)
     if (e.button !== undefined && e.button !== 0) return;
 
-    // Ignora cliques no joystick, controles de zoom ou UI do NPC
+    // Ignora cliques no joystick, controles de zoom ou UI do NPC e Modais
     if (e.target.closest('#joystickZone') ||
         e.target.closest('#zoomControls') ||
         e.target.closest('#npcPrompt') ||
         e.target.closest('#npcChatBar') ||
-        e.target.closest('#npcSpeechBubble')) return;
+        e.target.closest('#npcSpeechBubble') ||
+        e.target.closest('#aiConfigModal') ||
+        e.target.closest('#visitorModal')) return;
 
     mousePointer.x = (e.clientX / window.innerWidth) * 2 - 1;
     mousePointer.y = -(e.clientY / window.innerHeight) * 2 + 1;

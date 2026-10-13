@@ -237,9 +237,17 @@ O mapa conta com um sábio contemplativo localizado nas coordenadas **`(X: 10, Z
   - O zoom aumenta suavemente para `1.95x`.
   - O sábio inicia com a saudação: *"O que traz sua mente inquieta até este silêncio, viajante?"*.
 
-### 🧠 Diálogo Vivo com IA (DeepSeek API)
+### 🧠 Diálogo Vivo com IA (DeepSeek API & Segurança Anti-Vazamento)
 - **Barra de Entrada Responsiva:** Permite digitar livremente perguntas, reflexões ou sentimentos pelo teclado físico ou pelo teclado virtual do smartphone.
-- **Modelo e Persona:** Conectado à API do DeepSeek (`deepseek-v4-flash`), instruído com a persona acolhedora e meditativa do canal Corvo Seco.
+- **Modelo e Persona:** Conectado à API do DeepSeek (`deepseek-chat`), instruído com a persona acolhedora e meditativa do canal Corvo Seco.
+- **Arquitetura de Segurança (Proteção Absoluta contra Vazamentos):**
+  - **Zero Segredos no Código:** Nenhuma chave de API fica exposta no código-fonte ou no repositório Git.
+  - **Acesso Rápido no HUD (`🔑 IA`):** Botão discreto no topo direito da tela e na barra de chat do NPC para gerenciamento seguro da chave.
+  - **Configuração no Navegador (`localStorage`):** Em ambientes estáticos/web (ex: GitHub Pages), o jogador/desenvolvedor pode salvar sua chave de forma 100% privada exclusivamente na memória local do seu navegador. A chave jamais é enviada a repositórios, commits ou servidores de terceiros.
+  - **Servidor Proxy Local Seguro (`server.py`):** Ao iniciar o jogo via `jogar.bat`, o script Python `server.py` atua como proxy seguro lendo a variável `DEEPSEEK_API_KEY` do arquivo `.env` (ignorado pelo `.gitignore`) sem expor a chave ao frontend.
+  - **Bloqueio de Arquivos Confidenciais (HTTP 403):** O servidor bloqueia qualquer tentativa de acesso via navegador a `.env`, `.git`, `.py`, `.bat` ou `.ps1`.
+  - **Isolamento de Origem e Host:** Escuta exclusivamente em `127.0.0.1` (loopback local) e restringe CORS apenas a origens locais, impedindo ataques por abas externas ou dispositivos de rede.
+  - **Modo Sabedoria Offline (Fallback Resiliente):** Caso nenhuma chave esteja configurada, se a cota do DeepSeek acabar (HTTP 402) ou a chave for revogada (HTTP 401), o sábio responde de forma transparente utilizando a biblioteca de 30 ensinamentos autênticos do Corvo Seco, sem quebrar a imersão do jogo.
 - **Limite de 5 Turnos e Desculpa Zen:**
   - A conversa permite até **5 interações**.
   - No 5º turno, a IA formula uma resposta contextual profunda e **inventa uma desculpa filosófica e poética com seu gato** para encerrar o diálogo (ex: que as palavras já cumpriram sua função de apontar o caminho, que agora é hora de praticar o silêncio, ou que o gato precisa de quietude).
@@ -274,10 +282,16 @@ O mundo conta com a presença misteriosa do **Mago Flutuante**, uma entidade mí
 
 ```
 gamezin/
-├── index.html              # Estrutura HTML5 com Canvas, Joystick, HUD e Balão/Chat do NPC
-├── style.css               # Estilização responsiva, tema orgânico #fcfbf8 e UI do NPC
+├── index.html              # Estrutura HTML5 com Canvas, Joystick, HUD, Modais e Chat
+├── style.css               # Estilização responsiva, tema orgânico #fcfbf8 e UI do NPC/Modais
 ├── game.js                 # Motor Three.js 2.5D, IA dos mobs, NPC Corvo Seco e Mago Flutuante
 ├── three.min.js            # Biblioteca Three.js local (standalone offline)
+├── visitor-counter.js      # Contador global de visitas e mapa com geolocalização
+├── server.py               # Servidor web seguro local com proxy anti-vazamento para DeepSeek
+├── jogar.bat               # Inicializador rápido com 1 clique para Windows
+├── .env.example            # Modelo de configuração de ambiente para novas chaves
+├── .env                    # Arquivo local com credenciais (ignorado no .gitignore)
+├── .gitignore              # Proteção contra commit acidental de .env, chaves e caches
 ├── manifest.json           # Manifesto PWA para tela cheia em dispositivos móveis
 ├── ASSETS_GUIDE.md         # Guia técnico para desenhar e exportar novos sprites
 │
@@ -287,6 +301,7 @@ gamezin/
 ├── player-run-right-b.png  # Corrida para a direita (frame 2)
 ├── player-run-left-a.png   # Corrida para a esquerda (frame 1)
 ├── player-run-left-b.png   # Corrida para a esquerda (frame 2)
+├── player-apple-*.png      # Animações do jogador carregando maçã nas mãos
 │
 ├── old-a.png               # NPC Mestre Sábio (padrão / boca fechada)
 ├── old-b.png               # NPC Mestre Sábio (falando / boca aberta)
@@ -297,38 +312,52 @@ gamezin/
 ├── mago-d.png              # Mago Flutuante - Pose D
 ├── mago-e.png              # Mago Flutuante - Pose E
 │
+├── bau-molde.png           # Molde 3D do baú articulado
+├── bau-texture.png         # Textura do baú de madeira
+├── maca.png                # Item maçã coletável do pomar
+│
 ├── mob-a-1.png             # Frame 1 da criatura (esticado/repouso)
 ├── mob-a-2.png             # Frame 2 da criatura (início da contração)
 ├── mob-a-3.png             # Frame 3 da criatura (contração intermediária)
 ├── mob-a-4.png             # Frame 4 da criatura (contração máxima vertical)
 │
-├── grama-a.png             # Tufo de grama - variante A
-├── grama-b.png             # Tufo de grama - variante B
-├── grama-c.png             # Tufo de grama - variante C
-├── grama-d.png             # Tufo de grama - variante D
-├── pedra-a.png             # Rocha sólida - variante A
-├── pedra-b.png             # Rocha sólida - variante B
-├── pedra-c.png             # Rocha sólida - variante C
+├── grama-a.png a grama-d.png # Variantes de grama
+├── pedra-a.png a pedra-c.png # Rochas sólidas com colisão
 └── arvore-a.png            # Árvore frondosa (1024x1024) com copa 2.5D e tronco colidível
 ```
 
 ---
 
-## 🚀 11. Como Executar e Testar
+## 🚀 11. Como Executar Localmente
 
-Como o projeto é construído em JavaScript puro e Three.js local, basta servi-lo por qualquer servidor estático HTTP:
+### Opção 1: Inicializador Automático no Windows (Recomendado)
+Dê um duplo clique no arquivo **`jogar.bat`**.  
+O script iniciará automaticamente o servidor seguro `server.py` e abrirá seu navegador padrão em `http://localhost:8080`.
 
-### Opção 1: Node.js (`npx serve` ou `http-server`)
+### Opção 2: Python (Servidor Seguro com Proxy DeepSeek)
+```bash
+python server.py 8080
+```
+
+### Opção 3: Node.js ou Servidor Estático Simples
 ```bash
 npx serve .
 # ou
 npx http-server -p 8080
 ```
 
-### Opção 2: Python
-```bash
-python -m http.server 8080
-```
-
 Abra no navegador em: **`http://localhost:8080`**  
 Para testar no celular, conecte no mesmo Wi-Fi e acesse pelo IP da sua máquina (ex: `http://192.168.x.x:8080`).
+
+---
+
+## 🌐 12. Deploy e Publicação (GitHub Pages)
+
+O projeto é 100% compatível com hospedagem estática, como **GitHub Pages**:
+
+1. **Deploy Automático:** Qualquer alteração enviada para o branch `main` do repositório é publicada diretamente na URL do GitHub Pages (ex: `https://brunodarwich.github.io/gamezin/`).
+2. **Segurança no Deploy Público:**
+   - Nenhum segredo ou chave de API está presente no repositório.
+   - O arquivo `.env` é estritamente ignorado pelo `.gitignore`.
+   - Jogadores e visitantes utilizam a biblioteca de sabedoria offline ou podem configurar sua própria chave pessoal no navegador através do botão **`🔑 IA`** no HUD, mantendo custo zero para o proprietário do repositório.
+

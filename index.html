@@ -37,8 +37,16 @@
         <span id="chestCountDisplay">0/15</span>
       </div>
     </div>
-    <!-- Controles da Direita: Contador Discreto de Visitas e Zoom -->
+    <!-- Controles da Direita: Contador Discreto de Visitas, Chave IA e Zoom -->
     <div id="hudRightGroup">
+      <div id="aiConfigBadge" class="visitor-badge" title="Configurar Chave da IA DeepSeek">
+        <button id="btnAiConfigHud" class="visitor-btn" aria-label="Configurar Chave da IA" type="button">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 3px;">
+            <path d="M21 2l-2 2m-1-1l-3 3m2-2l-2 2m-1-1l-3 3M7 17l-4 4m0 0l2 2m-2-2l2-2m6-6a5 5 0 1 0-7-7 5 5 0 0 0 7 7z"></path>
+          </svg>
+          <span>IA</span>
+        </button>
+      </div>
       <div id="visitorBadge" class="visitor-badge" title="Visualizações • Clique para ver por país">
         <button id="btnVisitorStats" class="visitor-btn" aria-label="Ver visitantes por país" type="button">
           <svg class="eye-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -114,7 +122,10 @@
     <div class="chat-inner">
       <div class="chat-header-row">
         <div class="chat-turn-indicator">Conversa: <span id="interactionTurnCount">0</span>/5</div>
-        <button id="btnCloseChat" title="Encerrar conversa (Esc)">✕ Encerrar</button>
+        <div class="chat-header-actions">
+          <button id="btnAiConfig" class="chat-config-btn" title="Configurar Chave da IA DeepSeek com Segurança" type="button">🔑 Chave IA</button>
+          <button id="btnCloseChat" title="Encerrar conversa (Esc)" type="button">✕ Encerrar</button>
+        </div>
       </div>
       <form id="npcChatForm" class="chat-input-row" onsubmit="return false;">
         <input type="text" id="npcChatInput" placeholder="Pergunte algo ou compartilhe o que passa pela sua mente..." maxlength="250" autocomplete="off" />
@@ -123,8 +134,50 @@
     </div>
   </div>
 
+  <!-- Modal Glassmorphism de Configuração Segura da Chave IA DeepSeek -->
+  <div id="aiConfigModal" class="visitor-modal-backdrop visitor-ui-hidden" role="dialog" aria-modal="true" aria-labelledby="aiConfigTitle">
+    <div class="visitor-modal-card ai-modal-card">
+      <div class="visitor-modal-header">
+        <div class="visitor-modal-title-group">
+          <div class="visitor-modal-icon">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 2l-2 2m-1-1l-3 3m2-2l-2 2m-1-1l-3 3M7 17l-4 4m0 0l2 2m-2-2l2-2m6-6a5 5 0 1 0-7-7 5 5 0 0 0 7 7z"></path>
+            </svg>
+          </div>
+          <div>
+            <h3 id="aiConfigTitle">Segurança da IA DeepSeek</h3>
+            <p id="aiConfigSubtitle">Armazenamento local privado no navegador</p>
+          </div>
+        </div>
+        <button id="btnCloseAiConfigModal" class="visitor-modal-close" title="Fechar (Esc)" type="button">✕</button>
+      </div>
+      <div class="visitor-modal-body ai-modal-body">
+        <div class="ai-security-callout">
+          <span class="ai-shield-icon">🛡️</span>
+          <div>
+            <strong>100% Protegido:</strong> Sua chave de API fica armazenada <em>apenas no seu navegador</em> (localStorage) ou no arquivo local <code>.env</code>. Ela <strong>nunca</strong> é enviada para repositórios Git nem visível para outros jogadores.
+          </div>
+        </div>
+        <div class="ai-key-input-group">
+          <label for="aiKeyInput">Nova Chave de API DeepSeek (sk-...):</label>
+          <div class="ai-input-wrapper">
+            <input type="password" id="aiKeyInput" placeholder="sk-..." autocomplete="off" spellcheck="false" />
+            <button type="button" id="btnToggleKeyVisibility" title="Mostrar/Ocultar chave" class="btn-toggle-eye">👁️</button>
+          </div>
+        </div>
+        <div id="aiKeyStatusMessage" class="ai-key-status">
+          <!-- Atualizado via JavaScript -->
+        </div>
+      </div>
+      <div class="visitor-modal-footer ai-modal-footer">
+        <button type="button" id="btnRemoveAiKey" class="ai-btn-secondary" type="button">Remover Chave</button>
+        <button type="button" id="btnSaveAiKey" class="ai-btn-primary" type="button">Salvar no Navegador</button>
+      </div>
+    </div>
+  </div>
+
   <script src="three.min.js"></script>
-  <script src="game.js?v=20261012_idle_apple_v2"></script>
-  <script src="visitor-counter.js?v=20261012_idle_apple_v2"></script>
+  <script src="game.js?v=20261013_sec_update"></script>
+  <script src="visitor-counter.js?v=20261013_sec_update"></script>
 </body>
 </html>
