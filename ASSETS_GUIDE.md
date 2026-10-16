@@ -12,6 +12,7 @@ No Three.js, os objetos são medidos em unidades de mundo 3D. O personagem possu
 | :--- | :--- | :--- | :--- | :--- |
 | **Personagem Principal** | **`512 x 512 px`** (POT) | Em pé, corpo inteiro, pés rentes à base inferior | Altura: `2.0` / Largura: `2.0 * aspect` | `rotation.x = -0.36` |
 | **Mobs & Criaturas** | **`512 x 512 px`** (POT) | Arte apoiada no centro inferior do quadro | Escala: `1.9` (Pivô no centro inferior) | `rotation.x = -0.36` |
+| **Caveirinha (Esconde-esconde)** | **`512 x 512 px`** (POT) | Corpo inteiro, espiando e correndo | Escala: `1.6` (Pivô no centro inferior) | `rotation.x = -0.36` |
 | **Mago Flutuante** | **`512 x 512 px`** (POT) | Levitando, corpo inteiro | Altura: `2.0` (Elevado `+1.25Y` no ar) | `rotation.x = -0.36` |
 | **Itens & Coletáveis** | **`256 x 256 px`** | Em pé ou repousado | Altura: `0.6` a `0.8` | `rotation.x = -0.36` |
 | **Arbustos & Vegetação** | **`512 x 256 px`** ou **`512 x 512 px`** | Base reta no chão | Altura: `0.8` a `1.4` | `rotation.x = -0.36` |
@@ -45,6 +46,7 @@ O motor `game.js` detecta e carrega automaticamente os seguintes conjuntos de fr
 | **Mobs (Slimes)** | `mob-a-1.png` a `mob-a-4.png` | ~0.32s por frame (~3 fps) | Ciclo ping-pong `1>2>3>4>3>2>1`, velocidade 3x lenta, colisão mútua e Z-sorting |
 | **NPC Mestre Sábio** | `old-a.png` e `old-b.png` | Boca abre/fecha durante fala | `old-a.png` (padrão/repouso), `old-b.png` (falando com IA ou frases idle) |
 | **Mago Flutuante** | `mago-a.png` a `mago-e.png` | ~0.13s a 0.16s por frame | 4 loops temáticos derivados do modelo original: Meditativo (19 poses), Canalização Arcana (20 poses), Voo Espectral (16 poses) e Revelação (18 poses). Navegação em 4 modos com velocidade suave limitada a 1.25 un/s. Duração efêmera de 8 a 14s visível, pulso espectral de opacidade (0.40 a 0.98), sombra dinâmica e ausência de 30 a 60s (3x aumentada) |
+| **Caveirinha (Esconde-esconde)** | `skull- (1).png` a `skull- (7).png` (7 frames) | Idle: ~0.38s / Run: ~0.10s | Fica escondida atrás de uma árvore espiando (1 e 2), pisca periodicamente (3), e corre em disparada com poeira e pulinho para outra árvore (4, 5, 6 e 7). Espelhamento automático para esquerda/direita e fuga imediata se o jogador se aproximar. |
 | **Vegetação (Gramas)** | `grama-a.png` a `grama-d.png` | Estático com sombra rente | 4 variantes de tufos assentados no chão; transponíveis |
 | **Obstáculos (Pedras)** | `pedra-a.png` a `pedra-c.png` | Estático com sombra rente | 3 variantes com colisão circular elástica e deslizamento suave |
 | **Árvores & Cenário** | `arvore-a.png` (1024x1024 px) | Estático com sombra de tronco | Árvore frondosa majestosa com colisão sólida no tronco, copa transponível em 2.5D e Z-sorting |

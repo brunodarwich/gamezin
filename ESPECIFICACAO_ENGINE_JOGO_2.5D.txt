@@ -1,0 +1,419 @@
+================================================================================
+  DIRETRIZ DE ARQUITETURA, DESIGN E ESPECIFICAÇÃO TÉCNICA DO MOTOR 2.5D THREE.JS
+  (DOCUMENTO DE CONFIGURAÇÃO INICIAL E PROMPT-MESTRE PARA NOVOS PROJETOS)
+================================================================================
+
+Este documento consolida TODAS as decisões de engenharia visual, matemática de
+câmera, pipeline de arte 2D desenhada à mão, física, controles multidisciplinares,
+organização de chunks e coesão estética desenvolvidas no motor "Gamezin".
+
+Use este arquivo como instrução inicial (System Prompt / Especificação Base) para
+uma nova IA ou desenvolvedor iniciar um novo projeto com exatamente a mesma "pegada",
+garantindo compatibilidade, fluidez e consistência desde a primeira linha de código.
+
+--------------------------------------------------------------------------------
+SUMÁRIO
+--------------------------------------------------------------------------------
+1. VISÃO GERAL E ESTILO VISUAL (Paper Mario / Caminho das Flores)
+2. STACK TECNOLÓGICA E ESTRUTURA DE ARQUIVOS
+3. MATEMÁTICA DA CÂMERA E PERSPECTIVA ISOMÉTRICA SUAVE
+4. O SEGREDO DO BILLBOARD INCLINADO (Compensação de -20.6°)
+5. HORIZONTE INFINITO E TRUQUE DO CHÃO SEGUIDOR
+6. GUIA COMPLETO DE ASSETS PARA DESENHAR À MÃO (Sprites & Texturas)
+7. SISTEMA DE CONTROLES MULTIDISPOSITIVO (Desktop & Mobile)
+8. FÍSICA DE MOVIMENTAÇÃO, MICROANIMAÇÕES E COLISÃO COM DESLIZAMENTO TANGENCIAL
+9. ORDENAÇÃO DE PROFUNDIDADE 2.5D (Z-Sorting Dinâmico com renderOrder)
+10. SISTEMA PROCEDURAL DE CHUNKS INFINITOS (PRNG Determinístico)
+11. ENTIDADES VIVAS: MOBS COM IA WANDERING E ANIMAÇÃO PING-PONG
+12. SISTEMA DE INTERAÇÃO CONTEXTUAL, PROJEÇÃO 3D->2D E DIÁLOGOS
+13. ÁUDIO PROCEDURAL SINTETIZADO (Web Audio API sem dependências externas)
+14. TEXTURAS PROCEDURAIS CANVAS 2D DE FALLBACK (Anti-Quebra)
+15. CHECKLIST DE CONFIGURAÇÃO INICIAL PARA A IA NO NOVO PROJETO
+
+================================================================================
+1. VISÃO GERAL E ESTILO VISUAL
+================================================================================
+- Estilo: 2.5D Isométrico Suave (Tilted Projection / Perspectiva Levemente Inclinada).
+- Inspiração: "Paper Mario" e exploração zen minimalista ("O Caminho das Flores").
+- Sensação: Personagens e elementos 2D desenhados à mão como figuras de papel recortadas,
+  assentadas com peso e sombra elíptica sobre um mundo tridimensional infinito.
+- Fundo e Atmosfera: Branco limpo/orgânico relaxante (#ffffff ou #fcfbf8), sem linha de
+  horizonte aparente, transmitindo calma, clareza e foco na arte manual.
+- Execução: 100% no navegador (Desktop e Mobile), ultra-rápido, sem tela de carregamento
+  pesada e com 60 FPS estáveis mesmo em smartphones modestos.
+
+================================================================================
+2. STACK TECNOLÓGICA E ESTRUTURA DE ARQUIVOS
+================================================================================
+- Stack: HTML5 + CSS3 + JavaScript Puro (ES6) + Three.js (WebGL).
+- Sem dependências de build (zero Webpack, Vite ou npm obrigatório). Roda com servidor
+  estático simples (ex: `python -m http.server 8080`, `npx serve .` ou GitHub Pages).
+- Three.js standalone local (`three.min.js`) para funcionamento offline total.
+
+Estrutura recomendada de pastas do novo projeto:
+```
+meu-novo-projeto/
+├── index.html              # Canvas WebGL, HUD responsivo, Joystick virtual e modais
+├── style.css               # Tema limpo (#ffffff/#fcfbf8), layout adaptável e glassmorphism
+├── game.js                 # Motor 2.5D, física, controles, animações procedurais e entidades
+├── three.min.js            # Biblioteca Three.js local (standalone)
+├── server.py               # (Opcional) Servidor local com proxy seguro para APIs
+├── jogar.bat               # (Opcional) Inicializador rápido com 1 clique para Windows
+├── manifest.json           # (Opcional) PWA para rodar em tela cheia no mobile
+├── assets/                 # (Ou na raiz) Sprites PNG 2D com transparência
+│   ├── player-idle-a.png
+│   ├── player-idle-b.png
+│   ├── player-run-right-a.png
+│   ├── player-run-right-b.png
+│   ├── player-run-left-a.png
+│   ├── player-run-left-b.png
+│   ├── mob-1.png ... mob-4.png
+│   ├── npc-a.png, npc-b.png
+│   ├── grama-a.png ... grama-d.png
+│   ├── pedra-a.png ... pedra-c.png
+│   └── arvore-a.png
+```
+
+================================================================================
+3. MATEMÁTICA DA CÂMERA E PERSPECTIVA ISOMÉTRICA SUAVE
+================================================================================
+Ao contrário de câmeras ortográficas top-down puras (90° vertical) que achatam a arte,
+usa-se uma THREE.PerspectiveCamera estreita (baixo FOV) e ligeiramente recuada:
+
+- Tipo: THREE.PerspectiveCamera(fov, aspect, 0.1, 200)
+- FOV Base (Desktop): 40° a 42° (evita distorção esférica nas bordas).
+- Posição da Câmera (Desktop): (X: 0, Y: 7.5, Z: 9.5).
+- Ponto Focal (LookAt): (camera.x, 1.0, camera.z - 9.5) -> mira ligeiramente acima do chão (Y = 1.0).
+- Ângulo de Ataque ao Solo: ~38° a 40°.
+
+Enquadramento Dinâmico Responsivo por Proporção de Tela (aspect = width / height):
+---------------------------------------------------------------------------------
+| Perfil de Tela          | Aspect Ratio | FOV | Elevação (Y) | Recuo (Z) |
+|-------------------------|--------------|-----|--------------|-----------|
+| Mobile Portrait         | < 0.85       | 48° | 8.6          | 11.0      |
+| Tablet / Quase Quadrado | 0.85 a 1.25  | 44° | 8.0          | 10.2      |
+| Desktop / Widescreen    | >= 1.25      | 40° | 7.5          | 9.5       |
+
+Amortecimento Zen da Câmera (LERP):
+A câmera não é presa rigidamente ao jogador; ela utiliza interpolação suave:
+```javascript
+const targetCamX = playerGroup.position.x;
+const targetCamZ = playerGroup.position.z + camOffsetZ;
+camera.position.x += (targetCamX - camera.position.x) * 0.08;
+camera.position.z += (targetCamZ - camera.position.z) * 0.08;
+camera.position.y = camOffsetY;
+camera.lookAt(camera.position.x, 1.0, camera.position.z - camOffsetZ);
+```
+
+Zoom Suave Multidispositivo:
+- Limites: Mínimo 0.55x (visão panorâmica) a Máximo 2.4x (detalhe próximo). Padrão = 1.0x.
+- Interpolação: `camera.zoom += (targetZoom - camera.zoom) * 0.1; camera.updateProjectionMatrix();`
+- Gatilhos: Roda do mouse (wheel), teclas `+` / `-` / `0` e botões táteis no HUD (`+`, `-`, `1x`).
+
+================================================================================
+4. O SEGREDO DO BILLBOARD INCLINADO (Compensação de -20.6°)
+================================================================================
+Se um sprite 2D for posicionado perfeitamente na vertical (rotation.x = 0) enquanto a câmera
+olha o chão a ~38°, o sprite parecerá caído para trás.
+
+REGRA FUNDAMENTAL:
+Todos os sprites 2D de personagens, criaturas, vegetações e pedras devem ter uma
+inclinação fixa para frente compensando o ângulo da câmera:
+```javascript
+mesh.rotation.x = -0.36; // em radianos (~ -20.62 graus)
+```
+
+Ponto de Pivô (Ancoragem na Base Inferior):
+Para que o elemento não afunde no chão nem flutue ao girar ou receber zoom:
+```javascript
+const geo = new THREE.PlaneGeometry(largura, altura);
+geo.translate(0, altura / 2, 0); // O pivô (0, 0, 0) passa a ser a base inferior central
+```
+
+Configuração do Material do Sprite:
+```javascript
+const mat = new THREE.MeshBasicMaterial({
+  map: textura,
+  transparent: true,
+  alphaTest: 0.02,
+  side: THREE.DoubleSide,
+  depthWrite: false
+});
+```
+
+================================================================================
+5. HORIZONTE INFINITO E TRUQUE DO CHÃO SEGUIDOR
+================================================================================
+Para criar a sensação de um vazio acolhedor e infinito sem cortes de cenário:
+1. scene.background = new THREE.Color(0xffffff) (ou 0xfcfbf8).
+2. O plano do chão (groundPlane) tem tamanho fixo confortável (ex: 350x350) com MeshBasicMaterial branco.
+3. No loop de renderização, o plano do chão move sua posição X e Z junto com o jogador:
+   ```javascript
+   groundPlane.position.x = playerGroup.position.x;
+   groundPlane.position.z = playerGroup.position.z;
+   ```
+4. Resultado: O chão nunca acaba, não há linha de horizonte e o consumo de memória é quase zero.
+
+================================================================================
+6. GUIA COMPLETO DE ASSETS PARA DESENHAR À MÃO
+================================================================================
+Regras Gerais para Desenhar:
+- Formato: PNG com fundo 100% transparente (canal Alfa RGBA).
+- Tamanhos em Potência de 2 (Power of Two - POT): Permitem filtragem mipmap suave
+  (LinearMipmapLinearFilter) sem borrão nem serrilhado.
+- Enquadramento do Desenho: O personagem/objeto deve ser desenhado tocando quase a borda
+  inferior da tela (deixe apenas 2 a 4px de respiro). O centro inferior é o ponto de apoio.
+- Estilo Artístico: Visão frontal ou 3/4 levemente inclinado para frente, traços com contorno
+  sólido marcante (estilo Paper Mario adesivado), cores expressivas.
+
+Tabela de Especificações dos Sprites:
+---------------------------------------------------------------------------------
+| Elemento            | Arquivo(s)               | Resolução   | Unidades 3D | Comportamento                    |
+|---------------------|--------------------------|-------------|-------------|----------------------------------|
+| Player Parado       | player.png, player-b.png | 512x512 px  | Altura: 2.0 | Alterna a cada 0.75s + respiração|
+| Corrida Direita     | run-right-a / b.png      | 512x512 px  | Altura: 2.0 | ~7 fps (0.14s) + pulo de passo   |
+| Corrida Esquerda    | run-left-a / b.png       | 512x512 px  | Altura: 2.0 | ~7 fps (0.14s) + pulo de passo   |
+| Mob / Criatura      | mob-1.png a mob-4.png    | 512x512 px  | Escala: 1.9 | Ping-pong [1,2,3,4,3,2,1] (~3fps)|
+| NPC Mestre          | npc-a.png, npc-b.png     | 512x512 px  | Altura: 2.2 | npc-a (quieto), npc-b (falando)  |
+| Vegetação (Gramas)  | grama-a.png a grama-d.png| 512x512 px  | 0.8 a 1.2 un| Estático com sombra rente        |
+| Pedras / Rochas     | pedra-a.png a pedra-c.png| 512x512 px  | 0.8 a 1.5 un| Sólido com colisão elástica      |
+| Árvores / Marcos    | arvore-a.png             | 1024x1024 px| 3.5 a 4.5 un| Tronco colidível, copa 2.5D      |
+| Itens Coletáveis    | item.png                 | 256x256 px  | 0.5 a 0.8 un| Flutua/sombra no chão            |
+| Baú / Prop 3D       | bau-texture.png          | 1024x1024 px| Modelo 3D   | Atlas UV de 6 faces              |
+
+Cálculo de Proporção Automático do Sprite:
+No carregamento da imagem, o Three.js deve calcular a largura respeitando o aspecto original:
+```javascript
+const aspect = tex.image.naturalWidth / tex.image.naturalHeight;
+playerWidth = PLAYER_HEIGHT * aspect;
+playerMesh.geometry = new THREE.PlaneGeometry(playerWidth, PLAYER_HEIGHT);
+```
+
+================================================================================
+7. SISTEMA DE CONTROLES MULTIDISPOSITIVO (Desktop & Mobile)
+================================================================================
+O jogo deve funcionar perfeitamente com 3 métodos de entrada simultâneos:
+
+1. Teclado Desktop:
+   - Movimentação: Teclas W, A, S, D ou Setas direcionais.
+   - Interação: Tecla 'E'.
+   - Atalhos de Zoom: '+' / '-' / '0' (reset para 1x).
+   - Cancelamento / Fechar modais: 'Escape'.
+
+2. Clique / Toque no Chão (Click-to-Move) via Three.js Raycaster:
+   - Um toque ou clique no chão projeta um raio contra o groundPlane.
+   - O ponto de interseção vira `targetPosition = { x, z }`.
+   - Um marcador visual circular surge no chão onde o jogador tocou.
+   - O jogador caminha em direção ao destino com a velocidade padrão.
+   - Qualquer tecla pressionada ou uso do joystick anula o destino do clique imediatamente.
+
+3. Joystick Virtual Analógico (Touch Mobile):
+   - Elemento HTML #joystickZone cobrindo o canto inferior esquerdo.
+   - Base circular fixa e knob móvel com clamp de raio de 45px.
+   - Utiliza eventos PointerEvent com `setPointerCapture(e.pointerId)` para evitar perder
+     o arraste se o dedo sair da tela.
+   - Gera vetor normalizado `joystickVector = { x: dx / 45, y: dy / 45 }`.
+
+4. Marcador de Toque Suave Procedural (Feedback de Clique):
+   - Gerado via Canvas 2D: anel elegante translúcido verde botânico (`rgba(78, 122, 102, 0.72)`)
+     e miolo suave (`rgba(120, 170, 145, 0.42)`).
+   - No impacto do clique: escala inicial 0.6, opacidade 0.85.
+   - No loop: expande suavemente e esvanece (`opacity -= delta * 1.5; scale += delta * 0.8`).
+
+================================================================================
+8. FÍSICA DE MOVIMENTAÇÃO, MICROANIMAÇÕES E COLISÃO COM DESLIZAMENTO TANGENCIAL
+================================================================================
+Constantes Recomendadas:
+- `SPEED = 5.2` (unidades Three.js por segundo).
+- `PLAYER_HEIGHT = 2.0`
+- `BASE_Y = PLAYER_HEIGHT / 2`
+- `playerRadius = 0.38`
+
+Microanimações Procedurais de Peso e Vida:
+1. Respiração no Repouso (Idle):
+   `idleClock += delta * 2.2;`
+   `playerMesh.position.y = BASE_Y + Math.sin(idleClock) * 0.025;`
+2. Pulinho de Passo na Caminhada:
+   `walkClock += delta * 12;`
+   `stepHop = Math.abs(Math.sin(walkClock)) * 0.14;`
+   `playerMesh.position.y = BASE_Y + stepHop;`
+3. Inclinação Pendular de Corrida:
+   `playerMesh.rotation.z = Math.sin(walkClock) * (facingRight ? -0.05 : 0.05);`
+4. Pulso da Sombra Projetada no Chão:
+   Sombra elíptica em Y = 0.02 que contrai quando o pé sobe:
+   `shadowMesh.scale.set(1 - stepHop * 1.2, 1 - stepHop * 1.2, 1);`
+5. Partículas Cartunizadas de Poeira (FX Dust):
+   Ao correr continuamente por mais de 0.9s, nuvens cartunizadas de poeira são instanciadas
+   nos calcanhares, subindo suavemente e esvanecendo.
+
+Colisão com Deslizamento Tangencial (Sliding Collision):
+Para que o jogador não fique travado em quinas de pedras ou NPCs, o sistema usa círculos
+de colisão com projeção tangencial da velocidade:
+```javascript
+const minDist = playerRadius + obstacle.radius;
+const dx = nextX - obstacle.x;
+const dz = nextZ - obstacle.z;
+const distSq = dx * dx + dz * dz;
+
+if (distSq < minDist * minDist) {
+  const dist = Math.sqrt(distSq) || 0.001;
+  const overlap = minDist - dist;
+  const nx = dx / dist;
+  const nz = dz / dist;
+
+  // Afasta o jogador para fora do círculo
+  nextX += nx * overlap;
+  nextZ += nz * overlap;
+
+  // Redireciona a velocidade ao longo da tangente
+  const dot = velocity.x * nx + velocity.z * nz;
+  if (dot < 0) {
+    velocity.x -= dot * nx;
+    velocity.z -= dot * nz;
+  }
+}
+```
+
+================================================================================
+9. ORDENAÇÃO DE PROFUNDIDADE 2.5D (Z-Sorting Dinâmico com renderOrder)
+================================================================================
+Em jogos 2.5D com sprites transparentes recortados (`depthWrite: false`), o WebGL não pode
+usar o buffer de profundidade padrão, gerando artefatos visuais onde objetos de trás
+aparecem na frente.
+
+SOLUÇÃO DEFINITIVA DO MOTOR:
+Atribua a cada malha um `renderOrder` baseado matematicamente na sua coordenada Z no mundo:
+```javascript
+const BASE_SORT_ORDER = 10000;
+playerMesh.renderOrder = BASE_SORT_ORDER + Math.round(playerGroup.position.z * 100);
+mobMesh.renderOrder    = BASE_SORT_ORDER + Math.round(mob.position.z * 100);
+propMesh.renderOrder   = BASE_SORT_ORDER + Math.round(prop.position.z * 100);
+```
+- Efeito: Quem tiver Z maior (mais ao sul, mais perto da câmera) recebe renderOrder maior
+  e é desenhado DEPOIS, sobrepondo naturalmente quem estiver com Z menor (mais ao norte).
+- As sombras no chão ficam sempre com `renderOrder = 1` para nunca cobrirem nenhum sprite.
+
+================================================================================
+10. SISTEMA PROCEDURAL DE CHUNKS INFINITOS (PRNG Determinístico)
+================================================================================
+O mundo é dividido em chunks quadrados de tamanho `CHUNK_SIZE = 24` unidades:
+- Grade Ativa: Raio `CHUNK_RADIUS = 2` (uma matriz 5x5 cobrindo 120x120 unidades ao redor do jogador).
+- Persistência Determinística (Mulberry32 PRNG):
+  Cada coordenada de chunk `(cx, cz)` gera uma semente numérica única. Assim, ao retornar
+  a um chunk já visitado, as pedras e gramas nascem exatamente nas mesmas posições:
+  ```javascript
+  function getChunkSeed(cx, cz) {
+    let h = (cx * 73856093) ^ (cz * 19349663);
+    return (h ^ 0x85ebca6b) >>> 0;
+  }
+  ```
+- Descarte Automático: Chunks que saem do raio de visão têm suas malhas e colisões removidas
+  da memória (`dispose()` de geometrias e materiais não compartilhados).
+- Zona de Proteção (Safe Spawn): Um raio de 3.2 unidades ao redor de (0, 0) e pontos de NPCs
+  é estritamente mantido livre de pedras e obstáculos.
+
+================================================================================
+11. ENTIDADES VIVAS: MOBS COM IA WANDERING E ANIMAÇÃO PING-PONG
+================================================================================
+As criaturas conferem dinamismo e vida ao mundo:
+- Frames de Animação: 4 arquivos (`mob-1.png` a `mob-4.png`).
+- Ciclo Ping-Pong: `[0, 1, 2, 3, 2, 1]` gerando contração e distensão orgânica.
+- Cadência Suave: ~0.32s por frame (~3.1 fps), proporcional à velocidade lenta de rastejo.
+- Movimento e Patrulha (Wandering AI):
+  * Velocidade lenta (ex: 0.53 un/s).
+  * Sorteia destinos em um raio de 3.5 a 10 unidades.
+  * Pausa natural de repouso (0.8s a 2.2s) com retorno ao frame 1.
+  * Inversão horizontal automática (`scale.x = -1` ou `1`) conforme o sentido da caminhada.
+  * Colisão mútua bidirecional: o jogador e os mobs não se sobrepõem e deslizam tangencialmente.
+
+================================================================================
+12. SISTEMA DE INTERAÇÃO CONTEXTUAL, PROJEÇÃO 3D->2D E DIÁLOGOS
+================================================================================
+Projeção de Balões e Prompts da Cena 3D para a Tela 2D (HTML):
+Em vez de desenhar textos no canvas 3D (que distorcem com o zoom), os balões de fala e
+botões de ação são elementos HTML posicionados em tempo real convertendo coordenadas 3D:
+```javascript
+const screenPos = worldVector.clone().project(camera);
+const screenX = (screenPos.x * 0.5 + 0.5) * window.innerWidth;
+const screenY = (-(screenPos.y * 0.5) + 0.5) * window.innerHeight;
+promptElement.style.transform = `translate(${screenX}px, ${screenY}px)`;
+```
+
+Enquadramento Cinemático de Diálogo:
+Quando o jogador interage com um NPC:
+1. Trava a movimentação do jogador e coloca em pose idle.
+2. A câmera interpola suavemente (LERP) para o ponto médio entre o jogador e o NPC.
+3. O zoom aumenta suavemente para 1.95x para criar intimidade cinematográfica.
+4. Ao encerrar o diálogo, a câmera volta para o offset padrão e zoom 1.0x.
+
+================================================================================
+13. ÁUDIO PROCEDURAL SINTETIZADO (Web Audio API)
+================================================================================
+O motor dispensa o carregamento de arquivos de áudio externos (.mp3/.wav), gerando sons
+diretamente via síntese matemática de osciladores, sem requisições de rede:
+
+1. Som de Coleta / Pegar Item:
+   Oscilador senoidal com rampa exponencial de frequência rápida:
+   520 Hz -> 980 Hz em 0.12s. Ganho decaindo suavemente.
+2. Som de Guardar / Sucesso:
+   Arpejo harmônico em onda triangular com 4 notas:
+   C5 (523 Hz), E5 (659 Hz), G5 (784 Hz), C6 (1046 Hz).
+3. Som de Baú / Madeira Articulada:
+   Onda dente-de-serra (sawtooth) com rampa de tom grave (220 Hz -> 360 Hz ao abrir,
+   ou 380 Hz -> 180 Hz ao fechar).
+
+Ativação Segura:
+O `AudioContext` é inicializado ou retomado (`ctx.resume()`) apenas no primeiro clique
+ou tecla do usuário, respeitando a política de autoplay de todos os navegadores modernos.
+
+================================================================================
+14. TEXTURAS PROCEDURAIS CANVAS 2D DE FALLBACK (Anti-Quebra)
+================================================================================
+Para que o jogo funcione e possa ser testado imediatamente mesmo antes de o usuário
+desenhar qualquer arquivo PNG, o motor deve gerar texturas procedurais via Canvas 2D:
+
+1. Sombra Elíptica Suave: Gradiente radial em canvas 128x128 preto-azulado transparente.
+2. Marcador de Toque: Anéis concêntricos verde botânico em canvas 128x128.
+3. Poeira Cartunizada: Grupo de círculos com contorno e miolo bege em canvas 128x128.
+4. Item Coletável Fallback: Círculo estilizado com brilho e cabinho.
+5. Prop 3D (ex: Baú): Atlas UV procedural de madeira e ferro em canvas 1024x1024.
+
+Garantia de Robustez:
+O jogo NUNCA trava se uma imagem PNG estiver ausente; ele usa a textura procedural
+como fallback e substitui automaticamente assim que o arquivo PNG for desenhado e salvo.
+
+================================================================================
+15. CHECKLIST DE CONFIGURAÇÃO INICIAL PARA A IA NO NOVO PROJETO
+================================================================================
+Ao iniciar a criação do novo projeto com base neste guia, a IA deve seguir este roteiro:
+
+[ ] 1. Criar o `index.html` com:
+       - Meta viewport configurada para touch mobile (`viewport-fit=cover, user-scalable=no`).
+       - Canvas #gameCanvas em tela cheia.
+       - Estrutura de HUD (coordenadas, zoom, slot de item, botões de ação).
+       - Overlay do Joystick virtual no canto inferior esquerdo.
+       - Elementos para balões de fala e prompts de interação.
+
+[ ] 2. Criar o `style.css` com:
+       - Fundo neutro limpo (#ffffff ou #fcfbf8).
+       - Canvas fixo `width: 100vw; height: 100vh; touch-action: none;`.
+       - Joystick com círculos translúcidos elegantes.
+       - HUD moderno com tipografia limpa, bordas arredondadas e sombra suave.
+
+[ ] 3. Criar o `game.js` configurando:
+       - Three.js Scene, WebGLRenderer com antialias e pixelRatio limitado a 2.
+       - THREE.PerspectiveCamera com FOV 40°, elevação Y=7.5, recuo Z=9.5.
+       - Chão infinito branco puro sincronizado com a posição do jogador.
+       - Textura de sombra elíptica procedural e iluminação balanceada.
+       - Grupo do jogador com sprite billboard inclinado a -0.36 rad (-20.62°).
+       - Geometrias com pivô transladado para a base inferior (`translate(0, height/2, 0)`).
+       - Array de inputs (WASD, Setas, Click Raycaster, Joystick virtual mobile).
+       - Sistema de microanimações (respiração idle, pulinho de passo, inclinação de corrida).
+       - Sistema de colisão com deslizamento tangencial (sliding collision).
+       - Ordenação de profundidade dinâmica baseada em Z (`renderOrder = BASE + Z * 100`).
+       - Gerenciador de chunks procedurais com PRNG determinístico.
+       - Síntese de áudio procedural via Web Audio API.
+
+Seguindo rigorosamente este documento, o novo projeto nascerá com a mesma jogabilidade
+viciante, física macia, visual limpo e sensação artesanal do projeto original.
+================================================================================

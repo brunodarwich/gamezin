@@ -2254,6 +2254,284 @@ DIRETRIZES:
     }
   }
 
+  // =========================================================================
+  // 5.45 Personagem Caveirinha (Esconde-esconde entre as Árvores)
+  // =========================================================================
+  const SKULL_SIZE = 1.6;
+  const SKULL_SPEED = 5.2;
+
+  // Carregamento dos 7 Sprites da Caveirinha
+  // 1 e 2: Parado (Idle)
+  // 3: Parado piscando (Blink)
+  // 4, 5, 6 e 7: Correndo (Run)
+  const skullAssets = {
+    idle: ['skull- (1).png', 'skull- (2).png'],
+    blink: 'skull- (3).png',
+    run: ['skull- (4).png', 'skull- (5).png', 'skull- (6).png', 'skull- (7).png']
+  };
+
+  const skullTextures = {
+    idle: [null, null],
+    blink: null,
+    run: [null, null, null, null]
+  };
+
+  const skullGroup = new THREE.Group();
+  // Posição inicial: atrás da árvore Noroeste inicial (-2.4, -2.8)
+  skullGroup.position.set(-2.4 - 0.52, 0, -2.8 - 0.22);
+  scene.add(skullGroup);
+
+  // Sombra suave sob os pés
+  const skullShadowGeo = new THREE.PlaneGeometry(1.1, 0.55);
+  const skullShadowMesh = new THREE.Mesh(skullShadowGeo, propShadowMat);
+  skullShadowMesh.rotation.x = -Math.PI / 2;
+  skullShadowMesh.position.set(0, 0.012, 0);
+  skullShadowMesh.renderOrder = 1;
+  skullGroup.add(skullShadowMesh);
+
+  // Mesh do sprite (ancorado no centro inferior Y = 0)
+  const skullGeo = new THREE.PlaneGeometry(SKULL_SIZE, SKULL_SIZE);
+  skullGeo.translate(0, SKULL_SIZE / 2, 0);
+
+  const skullMat = new THREE.MeshBasicMaterial({
+    transparent: true,
+    alphaTest: 0.02,
+    side: THREE.DoubleSide,
+    depthWrite: false
+  });
+
+  const skullMesh = new THREE.Mesh(skullGeo, skullMat);
+  skullMesh.position.set(0, 0, 0);
+  skullMesh.rotation.x = -0.36; // Contra-inclinação billboard isométrica (-20.6°)
+  skullMesh.renderOrder = BASE_SORT_ORDER + Math.round(skullGroup.position.z * 100);
+  skullGroup.add(skullMesh);
+
+  // Carregamento assíncrono das 7 texturas
+  skullAssets.idle.forEach((path, idx) => {
+    textureLoader.load(path, (tex) => {
+      tex.generateMipmaps = true;
+      tex.minFilter = THREE.LinearMipmapLinearFilter;
+      tex.magFilter = THREE.LinearFilter;
+      skullTextures.idle[idx] = tex;
+      if (idx === 0 && !skullMesh.material.map) {
+        skullMesh.material.map = tex;
+        skullMesh.material.needsUpdate = true;
+      }
+    });
+  });
+
+  textureLoader.load(skullAssets.blink, (tex) => {
+    tex.generateMipmaps = true;
+    tex.minFilter = THREE.LinearMipmapLinearFilter;
+    tex.magFilter = THREE.LinearFilter;
+    skullTextures.blink = tex;
+  });
+
+  skullAssets.run.forEach((path, idx) => {
+    textureLoader.load(path, (tex) => {
+      tex.generateMipmaps = true;
+      tex.minFilter = THREE.LinearMipmapLinearFilter;
+      tex.magFilter = THREE.LinearFilter;
+      skullTextures.run[idx] = tex;
+    });
+  });
+
+  // Estado e Comportamento da Caveirinha
+  let skullState = 'hiding'; // 'hiding' | 'running'
+  let skullHideTimer = 4.5;
+  let skullTargetPos = new THREE.Vector3(-2.4 - 0.52, 0, -2.8 - 0.22);
+  let skullCurrentTree = { x: -2.4, z: -2.8 };
+  let skullFacingRight = false;
+
+  // Temporizadores de animação
+  let skullIdleTimer = 0.0;
+  let skullIdleFrame = 0;
+  const SKULL_IDLE_INTERVAL = 0.38; // Cadência suave parado
+
+  let skullBlinkTimer = 0.0;
+  let skullNextBlinkTime = 3.5 + Math.random() * 2.5;
+  let skullIsBlinking = false;
+  let skullBlinkDurationTimer = 0.0;
+  const SKULL_BLINK_DURATION = 0.24;
+
+  let skullRunAnimTimer = 0.0;
+  let skullRunFrame = 0;
+  const SKULL_RUN_INTERVAL = 0.10; // ~10 fps na corrida rápida
+  let skullRunClock = 0.0;
+  let skullDustTimer = 0.0;
+
+  function pickNextTree() {
+    const trees = activeRockObstacles.filter(o => o.isTree);
+    if (trees.length === 0) {
+      const fallbackTrees = [
+        { x: -2.4, z: -2.8 },
+        { x: 2.2, z: -2.8 },
+        { x: 4.8, z: 1.4 },
+        { x: -2.8, z: 1.8 }
+      ];
+      const valid = fallbackTrees.filter(t => Math.hypot(t.x - skullCurrentTree.x, t.z - skullCurrentTree.z) > 1.5);
+      return valid[Math.floor(Math.random() * valid.length)] || fallbackTrees[0];
+    }
+    const candidates = trees.filter(t => {
+      const distFromCurr = Math.hypot(t.x - skullCurrentTree.x, t.z - skullCurrentTree.z);
+      return distFromCurr > 2.5 && distFromCurr < 25.0;
+    });
+    const pool = candidates.length > 0 ? candidates : trees;
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+
+  function startRunningToTree(targetTree) {
+    if (!targetTree) return;
+    skullCurrentTree = targetTree;
+    // Sorteia o lado para espiar atrás da nova árvore (-1: esquerda, 1: direita)
+    const peekSide = Math.random() < 0.5 ? -1 : 1;
+    skullTargetPos.set(
+      targetTree.x + peekSide * 0.55,
+      0,
+      targetTree.z - 0.24
+    );
+    skullState = 'running';
+    skullRunFrame = 0;
+    skullRunAnimTimer = 0.0;
+  }
+
+  function updateCaveirinha(delta) {
+    if (!skullGroup || !skullMesh) return;
+
+    if (skullState === 'hiding') {
+      // 1. Z-sorting: posiciona-se atrás do tronco da árvore
+      skullMesh.renderOrder = BASE_SORT_ORDER + Math.round(skullGroup.position.z * 100);
+
+      // 2. Olhar para a direção do jogador enquanto espreita
+      const dxToPlayer = playerGroup.position.x - skullGroup.position.x;
+      if (dxToPlayer > 0.3) {
+        skullFacingRight = true;
+      } else if (dxToPlayer < -0.3) {
+        skullFacingRight = false;
+      }
+      // Sprite original olha para a esquerda. Inverte no Three.js para olhar à direita
+      skullMesh.scale.x = skullFacingRight ? -1 : 1;
+
+      // 3. Respiração sutil vertical
+      skullMesh.position.y = Math.sin(clock.elapsedTime * 2.8) * 0.025;
+      skullMesh.rotation.z = 0;
+
+      // 4. Piscar de olhos (Frame 3)
+      if (skullIsBlinking) {
+        skullBlinkDurationTimer += delta;
+        if (skullTextures.blink && skullMesh.material.map !== skullTextures.blink) {
+          skullMesh.material.map = skullTextures.blink;
+          skullMesh.material.needsUpdate = true;
+        }
+        if (skullBlinkDurationTimer >= SKULL_BLINK_DURATION) {
+          skullIsBlinking = false;
+          skullBlinkDurationTimer = 0.0;
+          skullBlinkTimer = 0.0;
+          skullNextBlinkTime = 3.5 + Math.random() * 3.0;
+        }
+      } else {
+        // Ciclo Parado normal (Frames 1 e 2)
+        skullBlinkTimer += delta;
+        if (skullBlinkTimer >= skullNextBlinkTime) {
+          skullIsBlinking = true;
+          skullBlinkDurationTimer = 0.0;
+        }
+
+        skullIdleTimer += delta;
+        if (skullIdleTimer >= SKULL_IDLE_INTERVAL) {
+          skullIdleTimer = 0.0;
+          skullIdleFrame = (skullIdleFrame + 1) % 2;
+          const tex = skullTextures.idle[skullIdleFrame];
+          if (tex && skullMesh.material.map !== tex) {
+            skullMesh.material.map = tex;
+            skullMesh.material.needsUpdate = true;
+          }
+        }
+      }
+
+      // 5. Decisão de corrida (Timer ou Jogador muito próximo)
+      skullHideTimer -= delta;
+      const distToPlayer = Math.hypot(
+        playerGroup.position.x - skullGroup.position.x,
+        playerGroup.position.z - skullGroup.position.z
+      );
+
+      // Se o jogador chegar a menos de 3.2 unidades, ela se assusta e corre imediatamente!
+      if (distToPlayer < 3.2 || skullHideTimer <= 0) {
+        const nextTree = pickNextTree();
+        if (nextTree) {
+          startRunningToTree(nextTree);
+        } else {
+          skullHideTimer = 3.0;
+        }
+      }
+
+    } else if (skullState === 'running') {
+      const dx = skullTargetPos.x - skullGroup.position.x;
+      const dz = skullTargetPos.z - skullGroup.position.z;
+      const dist = Math.hypot(dx, dz);
+
+      if (dist > 0.18) {
+        const vx = (dx / dist) * SKULL_SPEED;
+        const vz = (dz / dist) * SKULL_SPEED;
+
+        skullGroup.position.x += vx * delta;
+        skullGroup.position.z += vz * delta;
+
+        // Orientação visual: sprite original olha para a esquerda
+        if (vx > 0.05) {
+          skullFacingRight = true;
+        } else if (vx < -0.05) {
+          skullFacingRight = false;
+        }
+        skullMesh.scale.x = skullFacingRight ? -1 : 1;
+
+        // Z-sorting dinâmico enquanto corre pelo descampado
+        skullMesh.renderOrder = BASE_SORT_ORDER + Math.round(skullGroup.position.z * 100);
+
+        // Ciclo de corrida: 4 > 5 > 6 > 7
+        skullRunAnimTimer += delta;
+        if (skullRunAnimTimer >= SKULL_RUN_INTERVAL) {
+          skullRunAnimTimer = 0.0;
+          skullRunFrame = (skullRunFrame + 1) % 4;
+          const tex = skullTextures.run[skullRunFrame];
+          if (tex && skullMesh.material.map !== tex) {
+            skullMesh.material.map = tex;
+            skullMesh.material.needsUpdate = true;
+          }
+        }
+
+        // Pulinho de corrida cômico e ágil
+        skullRunClock += delta * 18;
+        const hop = Math.abs(Math.sin(skullRunClock)) * 0.12;
+        skullMesh.position.y = hop;
+        skullMesh.rotation.z = Math.sin(skullRunClock) * (skullFacingRight ? -0.08 : 0.08);
+
+        // Emissão de poeira nos passos
+        skullDustTimer += delta;
+        if (skullDustTimer >= 0.11) {
+          skullDustTimer = 0.0;
+          if (typeof spawnDustParticle === 'function') {
+            spawnDustParticle(skullGroup.position.x, skullGroup.position.z, Math.sign(vx), Math.sign(vz));
+          }
+        }
+      } else {
+        // Chegou atrás da nova árvore!
+        skullGroup.position.x = skullTargetPos.x;
+        skullGroup.position.z = skullTargetPos.z;
+        skullMesh.position.y = 0;
+        skullMesh.rotation.z = 0;
+        skullState = 'hiding';
+        skullHideTimer = 4.0 + Math.random() * 4.5; // Fica escondida de 4 a 8.5 segundos
+        skullIdleFrame = 0;
+        if (skullTextures.idle[0]) {
+          skullMesh.material.map = skullTextures.idle[0];
+          skullMesh.material.needsUpdate = true;
+        }
+      }
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // 5.5 Baú 3D Articulado e Efeitos Sonoros
   // ---------------------------------------------------------------------------
@@ -3471,6 +3749,7 @@ DIRETRIZES:
     updateMobs(delta);
     if (typeof updateNpc === 'function') updateNpc(delta);
     if (typeof updateWizard === 'function') updateWizard(delta);
+    if (typeof updateCaveirinha === 'function') updateCaveirinha(delta);
     if (typeof updateChestAndApples === 'function') updateChestAndApples(delta);
     if (typeof updateContextualPrompt === 'function') updateContextualPrompt();
     updateParticles(delta);
