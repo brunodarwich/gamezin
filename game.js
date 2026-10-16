@@ -1283,7 +1283,7 @@
   let mouthFlapInterval = null;
   let isTypingSpeech = false;
   let idleQuoteTimer = 0;
-  const IDLE_QUOTE_INTERVAL = 11.5; // Balão de ensinamento a cada ~11.5 segundos
+  const IDLE_QUOTE_INTERVAL = 60.0; // 1 frase por minuto (a cada 60 segundos)
   let idleQuoteIndex = Math.floor(Math.random() * CORVO_SECO_QUOTES.length);
   let idleHideTimeout = null;
 
@@ -1458,6 +1458,7 @@
     if (!inDialogue) return;
     inDialogue = false;
     isAwaitingAI = false;
+    idleQuoteTimer = 0;
     targetZoom = Math.min(Math.max(userPrevZoom, MIN_ZOOM), MAX_ZOOM);
 
     hidePlayerSpeech(0);

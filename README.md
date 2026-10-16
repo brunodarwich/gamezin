@@ -225,7 +225,7 @@ O mapa conta com um sábio contemplativo localizado nas coordenadas **`(X: 10, Z
 
 ### 🧘‍♂️ Ciclo Idle de Ensinamentos (30 Frases Pré-definidas)
 - Quando o jogador está em seu campo de percepção (raio de até 12 unidades) sem interagir ativamente:
-- A cada `~11.5s`, o sábio profere um ensinamento reflexivo em um balão flutuante projetado diretamente sobre sua cabeça.
+- A cada `~60s` (1 frase por minuto), o sábio profere um ensinamento reflexivo em um balão flutuante projetado diretamente sobre sua cabeça.
 - Durante a fala, a boca do ancião anima entre repouso (`old-a.png`) e aberta (`old-b.png`), voltando suavemente à quietude.
 - O jogo conta com um acervo de **30 frases poéticas e profundas** sobre a mente, o ego, o desapego e o instante presente.
 
